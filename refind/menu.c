@@ -865,26 +865,32 @@ UINTN RunGenericMenu(IN REFIT_MENU_SCREEN *Screen,
                 Item = FindMainMenuItem(Screen, &State, CurrentPointerState.X, CurrentPointerState.Y);
                 switch (Item) {
                     case POINTER_NO_ITEM:
-                        if(DrawSelection) { DrawSelection = FALSE;
-                            State.PaintSelection = TRUE; LOG(3, LOG_LINE_NORMAL, L"Pointer: No item, deselecting.\n"); }
+                        if(DrawSelection) { 
+                        DrawSelection = FALSE;
+                        State.PaintSelection = FALSE;
+                        State.PaintAll = TRUE;
+                        if(ClickDetected) { MenuExit = MENU_EXIT_ZERO;}
+                        LOG(3, LOG_LINE_NORMAL, L"Pointer: No item, deselecting.\n"); }
                         break;
                     case POINTER_LEFT_ARROW:
                         if(ClickDetected) { UpdateScroll(&State, SCROLL_PAGE_UP);
-                            State.PaintAll = TRUE; State.PaintSelection = TRUE; LOG(3, LOG_LINE_NORMAL, L"Pointer: Left arrow clicked.\n");
+                           DrawSelection = FALSE; State.PaintAll = TRUE; State.PaintSelection = TRUE; LOG(3, LOG_LINE_NORMAL, L"Pointer: Left arrow clicked.\n");
                         }
                         if(DrawSelection) { DrawSelection = FALSE;
-                            State.PaintSelection = TRUE; }
+                            State.PaintSelection = TRUE; 
+                            State.PaintAll = TRUE;}
                         break;
                     case POINTER_RIGHT_ARROW:
                         if(ClickDetected) { UpdateScroll(&State, SCROLL_PAGE_DOWN);
-                            State.PaintAll = TRUE; State.PaintSelection = TRUE; LOG(3, LOG_LINE_NORMAL, L"Pointer: Right arrow clicked.\n");
+                           DrawSelection = FALSE; State.PaintAll = TRUE; State.PaintSelection = TRUE; LOG(3, LOG_LINE_NORMAL, L"Pointer: Right arrow clicked.\n");
                         }
                         if(DrawSelection) { DrawSelection = FALSE;
-                            State.PaintSelection = TRUE; }
+                            State.PaintSelection = TRUE; State.PaintAll = TRUE;}
                         break;
                     default:
                         if (!DrawSelection || Item != State.CurrentSelection) {
                             DrawSelection = TRUE;
+                            State.PaintAll = TRUE;
                             State.PaintSelection = TRUE; State.CurrentSelection = Item;
                             LOG(3, LOG_LINE_NORMAL, L"Pointer: Hovering item %d.\n", Item);
                         }
