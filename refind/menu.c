@@ -1,4 +1,4 @@
-/* https://gemini.google.com/app/2fbb3995e9ac5149
+/*
  * refit/menu.c
  * Menu functions
  *
@@ -811,7 +811,7 @@ UINTN RunGenericMenu(IN REFIT_MENU_SCREEN *Screen,
             }
 
             if (StyleFunc != MainMenuStyle) {
-                if (ClickDetected) { MenuExit = MENU_EXIT_ENTER; }
+                if (ClickDetected) { gSuppressPointerDraw = FALSE; MenuExit = MENU_EXIT_ENTER;}
             } else {
                 State.PreviousSelection = State.CurrentSelection;
                 Item = FindMainMenuItem(Screen, &State, CurrentPointerState.X, CurrentPointerState.Y);
@@ -821,6 +821,9 @@ UINTN RunGenericMenu(IN REFIT_MENU_SCREEN *Screen,
                         DrawSelection = FALSE;
                         State.PaintSelection = FALSE;
                         State.PaintAll = TRUE;
+                        if (ClickDetected || CurrentPointerState.Press) {
+                        gSuppressPointerDraw = FALSE;
+                        pdDraw();}
                         if(ClickDetected) { MenuExit = MENU_EXIT_ZERO;}
                         LOG(3, LOG_LINE_NORMAL, L"Pointer: No item, deselecting.\n"); }
                         break;
@@ -1965,7 +1968,7 @@ UINTN RunMainMenu(REFIT_MENU_SCREEN *Screen, CHAR16** DefaultSelection, REFIT_ME
         Style = GraphicsMenuStyle;
         MainStyle = MainMenuStyle;
         PointerEnabled = PointerActive = pdAvailable();
- //     DrawSelection = !PointerEnabled;
+//      DrawSelection = !PointerEnabled;
 	if (Screen->TimeoutSeconds > 0) { DrawSelection = !PointerEnabled; }
 	else { DrawSelection = TRUE; }
 //	DrawSelection = TRUE; // use this to always show selection
