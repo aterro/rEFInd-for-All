@@ -210,6 +210,8 @@ return APointerProtocol[Index]->WaitForInput;
 // Gets the current state of all pointer devices and assigns State to
 // the first available device's state
 ////////////////////////////////////////////////////////////////////////////////
+static BOOLEAN LastHolding = FALSE;
+
 EFI_STATUS pdUpdateState() {
 #if defined(EFI32) && defined(__MAKEWITH_GNUEFI)
     return EFI_NOT_READY;
@@ -222,109 +224,113 @@ EFI_STATUS pdUpdateState() {
         return EFI_NOT_READY;
     }
 
-    UINTN EfiMajorVersion = ST->Hdr.Revision >> 16;
-    UINTN EfiMinorVersion = ST->Hdr.Revision & ((1 << 16) - 1);
-    BOOLEAN AddStall = FALSE;
-    if (EfiMajorVersion < 2 || (EfiMajorVersion == 2 && EfiMinorVersion < 40)) {
-        AddStall = TRUE;
-    }
-
-    UINTN StallTime = 0;
-    if (AddStall) {
-        StallTime = 5 * 1000;
-    }
+    // Removed EfiMajorVersion, EfiMinorVersion, AddStall, and StallTime variables
+    // and their related logic, consistent with RefindPlus.
 
     EFI_STATUS Status = EFI_NOT_READY; // Overall status of pointer update
     EFI_ABSOLUTE_POINTER_STATE APointerState;
-    // Declared here, but will be used as SPointerStateLocal inside the loop for clarity and safety.
-    // EFI_SIMPLE_POINTER_STATE SPointerState; // Original declaration, we'll use a local variable inside the loop.
-    BOOLEAN LastHolding = State.Holding; // Capture previous holding state for 'Press' calculation
+    EFI_SIMPLE_POINTER_STATE SPointerStateLocal; // Use a local variable for the simple pointer state
+    
+    // THIS IS THE CRUCIAL CHANGE TO MATCH REFINDPLUS LOGIC FOR CLICKS:
+    // Capture the 'State.Holding' value from the END of the PREVIOUS frame
+    // BEFORE 'State.Holding' is reset for the current frame.
+    LastHolding = State.Holding; 
 
     // IMPORTANT: Reset State.Holding at the beginning of each update cycle to accumulate new state.
     // This ensures State.Holding starts fresh and accurately reflects current physical state from all devices.
     State.Holding = FALSE;
+    State.Press = FALSE; // Reset Press for current frame
 
     UINTN Index;
-    // --- ABSOLUTE POINTERS (Touchscreens) ---
-    for(Index = 0; Index < NumAPointerDevices; Index++) {
-        EFI_STATUS PointerStatus = refit_call2_wrapper(APointerProtocol[Index]->GetState, APointerProtocol[Index], &APointerState);
-        // if new state found and we haven't already found a new state (i.e., this is the first active pointer)
-        if(!EFI_ERROR(PointerStatus) && EFI_ERROR(Status)) {
-            Status = EFI_SUCCESS; // Mark overall status as success due to this active absolute pointer
-#ifdef EFI32
-            State.X = (UINTN)DivU64x64Remainder(APointerState.CurrentX * UGAWidth, APointerProtocol[Index]->Mode->AbsoluteMaxX, NULL);
-            State.Y = (UINTN)DivU64x64Remainder(APointerState.CurrentY * UGAHeight, APointerProtocol[Index]->Mode->AbsoluteMaxY, NULL);
-#else
-            State.X = (APointerState.CurrentX * UGAWidth) / APointerProtocol[Index]->Mode->AbsoluteMaxX;
-            State.Y = (APointerState.CurrentY * UGAHeight) / APointerProtocol[Index]->Mode->AbsoluteMaxY;
-#endif
-            State.Holding = (APointerState.ActiveButtons & EFI_ABSP_TouchActive); // Set holding from this device
-        } else if (PointerStatus == EFI_NOT_READY) {
-            // Apply stall only if AddStall is TRUE (i.e., revision < 2.50)
-            if (StallTime > 0) {
-                refit_call1_wrapper(gBS->Stall, StallTime);
-            }
-        }
-    }
+    BOOLEAN currentSimplePointerPress; // Declare locally
 
-    // --- SIMPLE POINTERS (Mice) ---
-    for(Index = 0; Index < NumSPointerDevices; Index++) {
-        EFI_SIMPLE_POINTER_STATE SPointerStateLocal; // Use a local variable for the simple pointer state
-        EFI_STATUS PointerStatus = refit_call2_wrapper(SPointerProtocol[Index]->GetState, SPointerProtocol[Index], &SPointerStateLocal); // Corrected SPointerProtocol
-
-        if (!EFI_ERROR(PointerStatus)) { // GetState was successful for this simple pointer device
-            BOOLEAN hasMovement = SPointerStateLocal.RelativeMovementX != 0 || SPointerStateLocal.RelativeMovementY != 0;
-            BOOLEAN currentSimplePointerPress = SPointerStateLocal.LeftButton || SPointerStateLocal.RightButton;
-
-            if (hasMovement) { // If there's movement from this device
-                if (EFI_ERROR(Status)) { // Only set Status to SUCCESS if no prior active device (absolute or simple) did
-                    Status = EFI_SUCCESS;
-                }
-                // Update X, Y based on movement (accumulate)
-#ifdef EFI32
-                INT32 TargetX = State.X + (INTN)DivS64x64Remainder(SPointerStateLocal.RelativeMovementX * GlobalConfig.MouseSpeed, SPointerProtocol[Index]->Mode->ResolutionX, NULL);
-                INT32 TargetY = State.Y + (INTN)DivS64x64Remainder(SPointerStateLocal.RelativeMovementY * GlobalConfig.MouseSpeed, SPointerProtocol[Index]->Mode->ResolutionY, NULL);
-#else
-                INT32 TargetX = State.X + SPointerStateLocal.RelativeMovementX * GlobalConfig.MouseSpeed / SPointerProtocol[Index]->Mode->ResolutionX;
-                INT32 TargetY = State.Y + SPointerStateLocal.RelativeMovementY * GlobalConfig.MouseSpeed / SPointerProtocol[Index]->Mode->ResolutionY;
-#endif
-                // Apply boundary checks immediately for updated values
-                if(TargetX < 0) {
-                    State.X = 0;
-                } else if(TargetX >= UGAWidth) {
-                    State.X = UGAWidth - 1;
-                } else {
-                    State.X = TargetX;
-                }
-
-                if(TargetY < 0) {
-                    State.Y = 0;
-                } else if(TargetY >= UGAHeight) {
-                    State.Y = UGAHeight - 1;
-                } else {
-                    State.Y = TargetY;
-                }
-            }
+    // Outer do-while loop to implement "first active device found, then break" logic from RefindPlus
+    do { 
+        // --- ABSOLUTE POINTERS (Touchscreens) ---
+        for(Index = 0; Index < NumAPointerDevices; Index++) {
+            EFI_STATUS PointerStatus = refit_call2_wrapper(APointerProtocol[Index]->GetState, APointerProtocol[Index], &APointerState);
             
-            // This is the crucial part for non-moving clicks:
-            // ALWAYS OR the current simple pointer's press state into State.Holding.
-            // This ensures State.Holding reflects *any* button press from any simple pointer device,
-            // regardless of movement, accumulated from all simple pointers.
-            State.Holding = State.Holding || currentSimplePointerPress;
+            // if new state found (no error)
+            if(!EFI_ERROR(PointerStatus)) {
+                Status = EFI_SUCCESS; // Mark overall status as success due to this active absolute pointer
 
-            // If a button is pressed on this device, even without movement, we should signal overall success.
-            // This ensures `State.Press` is calculated later and `pdUpdateState` returns `EFI_SUCCESS`.
-            if (currentSimplePointerPress && EFI_ERROR(Status)) {
-                Status = EFI_SUCCESS; // Signal overall success due to a button press from this device
-            }
+#ifdef EFI32
+                State.X = (UINTN)DivU64x64Remainder(APointerState.CurrentX * UGAWidth, APointerProtocol[Index]->Mode->AbsoluteMaxX, NULL);
+                State.Y = (UINTN)DivU64x64Remainder(APointerState.CurrentY * UGAHeight, APointerProtocol[Index]->Mode->AbsoluteMaxY, NULL);
+#else
+                State.X = (APointerState.CurrentX * UGAWidth) / APointerProtocol[Index]->Mode->AbsoluteMaxX;
+                State.Y = (APointerState.CurrentY * UGAHeight) / APointerProtocol[Index]->Mode->AbsoluteMaxY;
+#endif
+                // Accumulate holding state from this device (changed from direct assignment to OR)
+                State.Holding = State.Holding || (APointerState.ActiveButtons & EFI_ABSP_TouchActive);
 
-        } else if (PointerStatus == EFI_NOT_READY) {
-            // Apply stall only if AddStall is TRUE (i.e., revision < 2.50)
-            if (StallTime > 0) {
-                refit_call1_wrapper(gBS->Stall, StallTime);
+                // Found an active absolute pointer, break from this loop and outer do-while
+                break; 
+            } else if (PointerStatus == EFI_NOT_READY) {
+                // If not ready, continue to next device without stall, consistent with RefindPlus
             }
         }
-    }
+
+        // If an absolute pointer was successfully processed, exit the outer do-while loop
+        if (!EFI_ERROR(Status)) {
+            break;
+        }
+
+        // --- SIMPLE POINTERS (Mice) ---
+        for(Index = 0; Index < NumSPointerDevices; Index++) {
+            EFI_STATUS PointerStatus = refit_call2_wrapper(SPointerProtocol[Index]->GetState, SPointerProtocol[Index], &SPointerStateLocal);
+
+            if (!EFI_ERROR(PointerStatus)) { // GetState was successful for this simple pointer device
+                BOOLEAN hasMovement = SPointerStateLocal.RelativeMovementX != 0 || SPointerStateLocal.RelativeMovementY != 0;
+                currentSimplePointerPress = SPointerStateLocal.LeftButton || SPointerStateLocal.RightButton;
+
+                if (hasMovement) {
+                    if (EFI_ERROR(Status)) {
+                        Status = EFI_SUCCESS;
+                    }
+#ifdef EFI32
+                    INT32 TargetX = State.X + (INTN)DivS64x64Remainder(SPointerStateLocal.RelativeMovementX * GlobalConfig.MouseSpeed, SPointerProtocol[Index]->Mode->ResolutionX, NULL);
+                    INT32 TargetY = State.Y + (INTN)DivS64x64Remainder(SPointerStateLocal.RelativeMovementY * GlobalConfig.MouseSpeed, SPointerProtocol[Index]->Mode->ResolutionY, NULL);
+#else
+                    INT32 TargetX = State.X + SPointerStateLocal.RelativeMovementX * GlobalConfig.MouseSpeed / SPointerProtocol[Index]->Mode->ResolutionX;
+                    INT32 TargetY = State.Y + SPointerStateLocal.RelativeMovementY * GlobalConfig.MouseSpeed / SPointerProtocol[Index]->Mode->ResolutionY;
+#endif
+                    if(TargetX < 0) {
+                        State.X = 0;
+                    } else if(TargetX >= UGAWidth) {
+                        State.X = UGAWidth - 1;
+                    } else {
+                        State.X = TargetX;
+                    }
+
+                    if(TargetY < 0) {
+                        State.Y = 0;
+                    } else if(TargetY >= UGAHeight) {
+                        State.Y = UGAHeight - 1;
+                    } else {
+                        State.Y = TargetY;
+                    }
+                }
+                
+                // This is the crucial part for non-moving clicks:
+                // ALWAYS OR the current simple pointer's press state into State.Holding.
+                // This ensures State.Holding reflects *any* button press from any simple pointer device,
+                // regardless of movement, accumulated from all simple pointers.
+                State.Holding = State.Holding || currentSimplePointerPress;
+
+                // If a button is pressed on this device, even without movement, we should signal overall success.
+                // This ensures `State.Press` is calculated later and `pdUpdateState` returns `EFI_SUCCESS`.
+                if (currentSimplePointerPress && EFI_ERROR(Status)) {
+                    Status = EFI_SUCCESS; // Signal overall success due to a button press from this device
+                }
+                // Found an active simple pointer, break from this loop and outer do-while
+                break;
+            } else if (PointerStatus == EFI_NOT_READY) {
+                // If not ready, continue to next device without stall, consistent with RefindPlus
+            }
+        }
+
+    } while (0); // This loop runs only once, implementing the "first active device" logic
     
     // Calculates if the button *just went down* (a new press)
     State.Press = (!LastHolding && State.Holding);
@@ -359,8 +365,10 @@ VOID pdDraw() {
     if (!MouseTouchActive) {
         return;
     }
-    if (gSuppressPointerDraw) return;
-
+    if (gSuppressPointerDraw) {
+        return;
+    }
+    // if (State.X == LastXPos && State.Y == LastYPos) {return;}
     // Restore the old background (clear the previous pointer position)
     if(Background != NULL) {
         egDrawImage(Background, LastXPos, LastYPos);
