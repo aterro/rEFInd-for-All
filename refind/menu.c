@@ -389,13 +389,17 @@ static VOID SaveScreen(VOID) {
     ReadAllKeyStrokes();
 } // VOID SaveScreen()
 
-// Mock GetCurrentMS for testing/simulation. Replace with actual EFI timer function if available.
-static UINT64 mock_ms_time_counter = 0; // Existing global counter
-
-UINT64 GetCurrentMS_Mock(VOID) {
-    // This function simply returns the current mock time.
-    // The advancement logic will be handled where actual time passes (in WaitForInput).
-    return mock_ms_time_counter;
+UINT64 GetCurrentMS(VOID)
+{
+    EFI_TIME Time;
+    EFI_STATUS Status = refit_call2_wrapper(gRT->GetTime, &Time, NULL);
+    if (EFI_ERROR(Status)) {
+        // If the call fails, return a static value to prevent the system from
+        // entering an unpredictable state. This is a simple fallback.
+        return 0;
+    }
+    // Note: This will wrap around every 24 hours, which is fine for our purposes.
+    return ((Time.Hour * 3600) + (Time.Minute * 60) + Time.Second) * 1000 + (Time.Nanosecond / 1000000);
 }
 // NEW: WaitForInput function
 // TimeoutCentiseconds: If > 0, waits for this duration in centiseconds, or until input.
@@ -445,8 +449,6 @@ INPUT_TYPE WaitForInput(IN UINTN TimeoutMs) {
 
     // This is the actual wait.
     Status = refit_call3_wrapper(gBS->WaitForEvent, WaitListLength, WaitListLocal, &Index);
-
-    mock_ms_time_counter += WaitTime;
 
     refit_call1_wrapper(gBS->CloseEvent, TimerEvent);
     MyFreePool(WaitListLocal);
@@ -547,7 +549,7 @@ UINTN RunGenericMenu(IN REFIT_MENU_SCREEN *Screen,
     State.PaintAll = TRUE;
 
     // Initialize timing variables for the loop start using the mock timer
-    CurrentTimeMs = GetCurrentMS_Mock();
+    CurrentTimeMs = GetCurrentMS();
     LastInputMs = CurrentTimeMs;
     ScreensaverTimeoutMs = GlobalConfig.ScreensaverTime * 1000;
 
@@ -584,7 +586,7 @@ UINTN RunGenericMenu(IN REFIT_MENU_SCREEN *Screen,
         }
 
         // Get current time for timeout logic
-        CurrentTimeMs = GetCurrentMS_Mock();
+        CurrentTimeMs = GetCurrentMS();
 
         // --- Timer and Screensaver Logic ---
         if (InputDetectedThisIteration) {
@@ -737,7 +739,6 @@ UINTN RunGenericMenu(IN REFIT_MENU_SCREEN *Screen,
 
         // Add a small stall to prevent high CPU usage
         refit_call1_wrapper(gBS->Stall, 1000); // 1ms stall
-        mock_ms_time_counter++; // Manually increment mock timer
     } // END while (MenuExit == MENU_EXIT_ZERO) loop
 
     // Reset pointer visibility when exiting this menu instance
