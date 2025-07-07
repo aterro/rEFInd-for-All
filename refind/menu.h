@@ -141,6 +141,7 @@ VOID ManageHiddenTags(VOID);
 CHAR16* ReadHiddenTags(CHAR16 *VarName);
 UINTN RunMainMenu(IN REFIT_MENU_SCREEN *Screen, IN CHAR16** DefaultSelection, OUT REFIT_MENU_ENTRY **ChosenEntry);
 UINTN FindMainMenuItem(IN REFIT_MENU_SCREEN *Screen, IN SCROLL_STATE *State, IN UINTN PosX, IN UINTN PosY);
+UINT64 GetCurrentMS(VOID);
 VOID GenerateWaitList();
 
 #endif
