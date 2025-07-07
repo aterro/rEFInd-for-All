@@ -328,10 +328,8 @@ VOID pdDraw() {
     if (!MouseTouchActive) {
         return;
     }
-    if (gSuppressPointerDraw) {
-        return;
-    }
-    // if (State.X == LastXPos && State.Y == LastYPos) {return;}
+    if (gSuppressPointerDraw) {return;}
+
     // Restore the old background (clear the previous pointer position)
     if(Background != NULL) {
         egDrawImage(Background, LastXPos, LastYPos);

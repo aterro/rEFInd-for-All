@@ -625,21 +625,23 @@ UINTN RunGenericMenu(IN REFIT_MENU_SCREEN *Screen,
         }
 
         // --- Drawing Logic ---
-        if (PointerEnabled && pointerShouldBeVisible) { pdClear(); }
 
         if (State.PaintAll) {
+            if (PointerEnabled && pointerShouldBeVisible) { pdClear(); }
+            LOG(3, LOG_LINE_NORMAL, L"Painting ALL elements.\n");
             StyleFunc(Screen, &State, MENU_FUNCTION_PAINT_ALL, NULL);
             State.PaintAll = FALSE;
-            StyleFunc(Screen, &State, MENU_FUNCTION_PAINT_SELECTION, NULL);
             State.PaintSelection = FALSE;
         } else if (State.PaintSelection) {
+            if (PointerEnabled && pointerShouldBeVisible) { pdClear(); }
+            LOG(3, LOG_LINE_NORMAL, L"Painting SELECTION only.\n");
             gSuppressPointerDraw = TRUE;
             StyleFunc(Screen, &State, MENU_FUNCTION_PAINT_SELECTION, NULL);
             State.PaintSelection = FALSE;
             gSuppressPointerDraw = FALSE;
         }
 
-        if (PointerEnabled && PointerActive && !gSuppressPointerDraw && pointerShouldBeVisible) {
+        if (PointerEnabled && pointerShouldBeVisible && !gSuppressPointerDraw) {
             pdDraw();
         }
 
@@ -651,8 +653,8 @@ UINTN RunGenericMenu(IN REFIT_MENU_SCREEN *Screen,
         if (InputType == INPUT_KEY) {
             if (PointerEnabled) {
                 pdClear();
-            }
-            pointerShouldBeVisible = FALSE;
+        }
+	    pointerShouldBeVisible = FALSE;
             DrawSelection = TRUE;
             switch (key.ScanCode) {
                 case SCAN_UP: UpdateScroll(&State, SCROLL_LINE_UP); State.PaintSelection = TRUE; break;
@@ -685,18 +687,24 @@ UINTN RunGenericMenu(IN REFIT_MENU_SCREEN *Screen,
         } else if (InputType == INPUT_POINTER) {
             pointerShouldBeVisible = TRUE;
             ClickDetected = CurrentPointerState.Press;
-
-            if (StyleFunc != MainMenuStyle) {
-                if (ClickDetected) { MenuExit = MENU_EXIT_ENTER; }
+	    gSuppressPointerDraw = FALSE;
+             if (StyleFunc != MainMenuStyle) {
+                if (ClickDetected) { gSuppressPointerDraw = FALSE; MenuExit = MENU_EXIT_ENTER;}
             } else {
                 State.PreviousSelection = State.CurrentSelection;
                 Item = FindMainMenuItem(Screen, &State, CurrentPointerState.X, CurrentPointerState.Y);
                 switch (Item) {
                     case POINTER_NO_ITEM:
-                        if (DrawSelection) {
-                            DrawSelection = FALSE;
-                            State.PaintAll = TRUE;
+                        if(DrawSelection) { 
+                        DrawSelection = FALSE;
+                        State.PaintSelection = FALSE;
+                        State.PaintAll = TRUE;
+                        if (ClickDetected || CurrentPointerState.Press) {
+                        gSuppressPointerDraw = FALSE;
+                        pdDraw();
+                        MenuExit = MENU_EXIT_ZERO;
                         }
+                        LOG(3, LOG_LINE_NORMAL, L"Pointer: No item, deselecting.\n"); }
                         break;
                     case POINTER_LEFT_ARROW:
                         if (ClickDetected) {
@@ -732,7 +740,7 @@ UINTN RunGenericMenu(IN REFIT_MENU_SCREEN *Screen,
         mock_ms_time_counter++; // Manually increment mock timer
     } // END while (MenuExit == MENU_EXIT_ZERO) loop
 
-    // Reset pointerShouldBeVisible when exiting this menu instance
+    // Reset pointer visibility when exiting this menu instance
     pointerShouldBeVisible = FALSE;
     // --- Function Exit (Original cleanup calls) ---
     LOG(3, LOG_LINE_NORMAL, L"Exiting RunGenericMenu loop. Cleaning up.\n");
@@ -1830,9 +1838,9 @@ UINTN RunMainMenu(REFIT_MENU_SCREEN *Screen, CHAR16** DefaultSelection, REFIT_ME
         MainStyle = MainMenuStyle;
         PointerEnabled = PointerActive = pdAvailable();
 //      DrawSelection = !PointerEnabled;
-	if (Screen->TimeoutSeconds > 0) { DrawSelection = !PointerEnabled; }
-	else { DrawSelection = TRUE; }
-//	DrawSelection = TRUE; // use this to always show selection
+//	if (Screen->TimeoutSeconds > 0) { DrawSelection = !PointerEnabled; }
+//	else { DrawSelection = TRUE; }
+	DrawSelection = TRUE; // use this to always show selection
      }
 
     while (!MenuExit) {
