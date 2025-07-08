@@ -1839,9 +1839,9 @@ UINTN RunMainMenu(REFIT_MENU_SCREEN *Screen, CHAR16** DefaultSelection, REFIT_ME
         MainStyle = MainMenuStyle;
         PointerEnabled = PointerActive = pdAvailable();
 //      DrawSelection = !PointerEnabled;
-	if (Screen->TimeoutSeconds > 0) { DrawSelection = !PointerEnabled; }
-	else { DrawSelection = TRUE; }
-//	DrawSelection = TRUE; // use this to always show selection
+//	if (Screen->TimeoutSeconds > 0) { DrawSelection = !PointerEnabled; }
+//	else { DrawSelection = TRUE; }
+	DrawSelection = TRUE; // use this to always show selection
      }
 
     while (!MenuExit) {
