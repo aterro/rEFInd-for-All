@@ -172,10 +172,10 @@ MouseImage = NULL;
 NumAPointerDevices = 0;
 NumSPointerDevices = 0;
 
-LastXPos = UGAWidth / 2;
+LastXPos = UGAWidth >> 2;
 LastYPos = UGAHeight / 2;
 
-State.X = UGAWidth / 2;
+State.X = UGAWidth >> 2;
 State.Y = UGAHeight / 2;
 State.Press = FALSE;
 State.Holding = FALSE;
