@@ -100,6 +100,7 @@ static UINTN TileSizes[2] = { 144, 64 };
 
 static EG_IMAGE *SelectionImages[2] = { NULL, NULL };
 static EG_PIXEL SelectionBackgroundPixel = { 0xff, 0xff, 0xff, 0 };
+static BOOLEAN MainMenuPointerPrimed = FALSE;
 //
 #ifndef MAX_UINT64
 #define MAX_UINT64 ((UINT64) ~0ULL)  // All bits set for unsigned long long
@@ -523,10 +524,11 @@ UINTN RunGenericMenu(IN REFIT_MENU_SCREEN *Screen,
     }
 
     // Position pointer at center of default selection
-    if (PointerEnabled && StyleFunc == MainMenuStyle) {
+    if (PointerEnabled && StyleFunc == MainMenuStyle && !MainMenuPointerPrimed) {
         UINTN PointerX, PointerY;
         GetMenuItemCenter (Screen, &State, State.CurrentSelection, &PointerX, &PointerY);
         pdSetPosition (PointerX, PointerY);
+        MainMenuPointerPrimed = TRUE;
     }
 
     // --- Special immediate key read logic: ONLY if Screen->TimeoutSeconds == -1 ---
