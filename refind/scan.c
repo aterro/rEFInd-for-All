@@ -1585,7 +1585,6 @@ VOID ScanForTools(VOID) {
 
             case TAG_SHELL:
                 FindTool(AllToolLocations, SHELL_NAMES, L"EFI shell", BUILTIN_ICON_TOOL_SHELL);
-                ScanFirmwareDefined(1, L"Shell", BuiltinIcon(BUILTIN_ICON_TOOL_SHELL));
                 break;
 
             case TAG_GPTSYNC:
