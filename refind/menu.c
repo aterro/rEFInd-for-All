@@ -710,7 +710,7 @@ UINTN RunGenericMenu(IN REFIT_MENU_SCREEN *Screen,
                     case POINTER_NO_ITEM:
                         if(DrawSelection) { 
                         DrawSelection = FALSE;
-                        State.PaintSelection = FALSE;
+                        State.PaintSelection = TRUE;
                         State.PaintAll = TRUE;
                         if (ClickDetected || CurrentPointerState.Press) {
                         gSuppressPointerDraw = FALSE;
@@ -724,14 +724,20 @@ UINTN RunGenericMenu(IN REFIT_MENU_SCREEN *Screen,
                             UpdateScroll(&State, SCROLL_PAGE_UP);
                             State.PaintAll = TRUE;
                         }
-                        DrawSelection = FALSE;
+                        if (DrawSelection) {
+                            DrawSelection = FALSE;
+                            State.PaintSelection = TRUE;
+                        }
                         break;
                     case POINTER_RIGHT_ARROW:
                         if (ClickDetected) {
                             UpdateScroll(&State, SCROLL_PAGE_DOWN);
                             State.PaintAll = TRUE;
                         }
-                        DrawSelection = FALSE;
+                        if (DrawSelection) {
+                            DrawSelection = FALSE;
+                            State.PaintSelection = TRUE;
+                        }
                         break;
                     default:
                         if (!DrawSelection || Item != State.CurrentSelection) {

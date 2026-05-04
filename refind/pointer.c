@@ -47,6 +47,7 @@ EG_IMAGE* Background = NULL;
 POINTER_STATE State;
 
 BOOLEAN gSuppressPointerDraw = FALSE;
+BOOLEAN gPointerActuallyMoved = FALSE;
 BOOLEAN MouseTouchActive = TRUE;
 // Add this global boolean declaration
 
@@ -308,6 +309,13 @@ EFI_STATUS pdUpdateState (VOID) {
 
     State.Press = (!LastHolding && State.Holding);
 
+    if (State.X != LastXPos || State.Y != LastYPos) {
+        gPointerActuallyMoved = TRUE;
+        if (gSuppressPointerDraw) {
+            gSuppressPointerDraw = FALSE;
+        }
+    }
+
     if (EFI_ERROR(Status)) {
         Status = EFI_NOT_READY;
     }
@@ -327,8 +335,8 @@ POINTER_STATE pdGetState() {
 VOID pdSetPosition (UINTN X, UINTN Y) {
     State.X = X;
     State.Y = Y;
-    LastXPos = X;
-    LastYPos = Y;
+    gPointerActuallyMoved = TRUE;
+    gSuppressPointerDraw = FALSE;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -339,6 +347,10 @@ VOID pdDraw() {    // Gate the drawing if no pointer system is active
         return;
     }
     if (gSuppressPointerDraw) {return;}
+
+    if (!gPointerActuallyMoved && Background != NULL) {
+        return;
+    }
 
     // Restore the old background (clear the previous pointer position)
     if(Background != NULL) {
@@ -374,6 +386,7 @@ VOID pdDraw() {    // Gate the drawing if no pointer system is active
     // Update LastXPos/LastYPos for the next frame's comparison
     LastXPos = State.X;
     LastYPos = State.Y;
+    gPointerActuallyMoved = FALSE;
 }
 ////////////////////////////////////////////////////////////////////////////////
 // Restores the background at the position the mouse was last drawn
