@@ -34,7 +34,14 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#ifdef __clang__
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wpragma-pack"
+#endif
 #include "gptsync.h"
+#ifdef __clang__
+#pragma clang diagnostic pop
+#endif
 
 //
 // memory string search

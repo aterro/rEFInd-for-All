@@ -35,7 +35,14 @@
  */
 /* Changes copyright (c) 2013-2024 Roderick W. Smith */
 
+#ifdef __clang__
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wpragma-pack"
+#endif
 #include "gptsync.h"
+#ifdef __clang__
+#pragma clang diagnostic pop
+#endif
 #include "../include/version.h"
 
 #include "../include/syslinux_mbr.h"

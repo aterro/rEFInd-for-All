@@ -103,6 +103,12 @@
 // the C standard does not, even though *any* practically useful machine
 // nowadays uses two's complement.
 
+#include "global.h"
+#include "../refind/lib.h"
+
+VOID *MyMemSet(VOID *s, int c, UINTN n);
+VOID *MyMemCpy(void *__restrict __dest, const void *__restrict __src, UINTN __n);
+
 
 ///////////////////////////////////////////////////////////////////////////////
 // HEADER SECTION                                                            //
@@ -273,8 +279,10 @@ int main(int argc, char* argv[]) {
 #endif
 
 #if NJ_USE_LIBC
+#ifndef __MAKEWITH_TIANO
     #include <stdlib.h>
     #include <string.h>
+#endif
     #define njAllocMem malloc
     #define njFreeMem  free
     #define njFillMem  memset

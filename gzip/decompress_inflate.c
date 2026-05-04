@@ -12,6 +12,7 @@
 
 #define malloc AllocatePool
 #define free MyFreePool
+#define memcpy(d, s, n) CopyMem((d), (s), (n))
 
 #include "zlib_inflate/inftrees.c"
 #include "zlib_inflate/inffast.c"

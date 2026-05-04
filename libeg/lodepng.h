@@ -23,34 +23,40 @@ freely, subject to the following restrictions:
     distribution.
 */
 /*
- * This version of lodepng.h is modified for use with rEFInd. Some options
- * are commented out and several definitions (commented on shortly) are added
- * for GNU-EFI compatibility. The associated lodepng.c file is unmodified
- * from the original.
+ * Modified for EFI/TianoCore use.
  */
 
 #ifndef LODEPNG_H
 #define LODEPNG_H
 
-#include <string.h> /*for size_t*/
+#ifdef EFIAPI
 
-// Below block of lines required for GNU-EFI and TianoCore (program hangs
-// when run without them, and associated function in lodepng_xtra.c)
-int MyStrlen(const char *InString);
-#define strlen(c) MyStrlen(c)
-#include <stdlib.h>
-#include "../include/refit_call_wrapper.h"
-#define abs(x) (((x) < 0) ? -(x) : (x))
-#ifdef __MAKEWITH_GNUEFI
-#include <efi.h>
-#include <efilib.h>
+#include <Uefi.h>
+#include <Library/BaseLib.h>
+#include <Library/BaseMemoryLib.h>
+#include <Library/MemoryAllocationLib.h>
+
+#define LODEPNG_NO_COMPILE_DISK
+#define LODEPNG_NO_COMPILE_ANCILLARY_CHUNKS
+#define LODEPNG_NO_COMPILE_ERROR_TEXT
+#define LODEPNG_NO_COMPILE_ALLOCATORS
+#define LODEPNG_NO_COMPILE_CPP
+
+#define size_t UINTN
+
+typedef UINT32 uint32_t;
+typedef UINT16 uint16_t;
+typedef UINT8  uint8_t;
+typedef INT32  int32_t;
+typedef INT16  int16_t;
+typedef INT8   int8_t;
+
+void* lodepng_refit_malloc(size_t size);
+void lodepng_refit_free(void* ptr);
+
 #else
-#include "../include/tiano_includes.h"
+#include <string.h> /*for size_t*/
 #endif
-VOID *MyMemSet(VOID *s, int c, size_t n);
-VOID *MyMemCpy(void *__restrict __dest, const void *__restrict __src, size_t __n);
-#define memset(s, c, n) MyMemSet(s, c, n)
-#define memcpy(d, s, n) MyMemCpy(d, s, n)
 
 extern const char* LODEPNG_VERSION_STRING;
 

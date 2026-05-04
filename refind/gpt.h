@@ -14,16 +14,30 @@
 #ifndef __GPT_H_
 #define __GPT_H_
 
+#ifdef __clang__
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wpragma-pack"
+#endif
 #include "global.h"
+#ifdef __clang__
+#pragma clang diagnostic pop
+#endif
 
 #ifdef __MAKEWITH_GNUEFI
 #include "efi.h"
 #include "efilib.h"
 #else
+#ifdef __clang__
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wpragma-pack"
+#endif
 #include "../include/tiano_includes.h"
+#ifdef __clang__
+#pragma clang diagnostic pop
+#endif
 #endif
 
-#pragma pack(1)
+#pragma pack(push, 1)
 typedef struct {
    UINT8   flags;
    UINT8   start_chs[3];
@@ -78,7 +92,7 @@ typedef struct _gpt_data {
    struct _gpt_data   *NextEntry;
 } GPT_DATA;
 
-#pragma pack(0)
+#pragma pack(pop)
 
 VOID ClearGptData(GPT_DATA *Data);
 EFI_STATUS ReadGptData(REFIT_VOLUME *Volume, GPT_DATA **Data);

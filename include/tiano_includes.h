@@ -16,6 +16,11 @@
 #define StrDuplicate EfiStrDuplicate
 #define EFI_MAXIMUM_VARIABLE_SIZE           1024
 
+#ifdef __clang__
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wpragma-pack"
+#endif
+
 #include <PiDxe.h>
 #include <Base.h>
 #include <Uefi.h>
@@ -107,6 +112,10 @@
 #include <IndustryStandard/Scsi.h>
 
 #include "../EfiLib/Platform.h"
+
+#ifdef __clang__
+#pragma clang diagnostic pop
+#endif
 
 
 BOOLEAN CheckError(IN EFI_STATUS Status, IN CHAR16 *where);

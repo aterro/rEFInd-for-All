@@ -164,11 +164,46 @@ EFI_GUID RefindGuid = REFIND_GUID_VALUE;
 // misc functions
 //
 
+static VOID GetBuildTags(CHAR16 **TypeTag, CHAR16 **ToolTag)
+{
+    if (TypeTag != NULL) {
+#if defined(__BUILDING_ON_WINDOWS__)
+        *TypeTag = L"Windows";
+#elif defined(__APPLE__)
+        *TypeTag = L"macOS";
+#elif defined(__linux__)
+        *TypeTag = L"Linux";
+#elif defined(__FreeBSD__)
+        *TypeTag = L"FreeBSD";
+#elif defined(_WIN32) || defined(WIN32)
+        *TypeTag = L"Windows";
+#elif defined(__unix__) || defined(__MACH__)
+        *TypeTag = L"SomeBSD";
+#else
+        *TypeTag = L"Other";
+#endif
+    }
+
+    if (ToolTag != NULL) {
+#if defined(__clang__)
+        *ToolTag = L"Clang";
+#elif defined(__GNUC__)
+        *ToolTag = L"GCC";
+#else
+        *ToolTag = L"Unknown";
+#endif
+    }
+}
+
 VOID AboutrEFInd(VOID)
 {
     CHAR16     *FirmwareVendor;
     CHAR16     *TempStr;
+    CHAR16     *TypeTag;
+    CHAR16     *ToolTag;
     UINT32     CsrStatus;
+
+    GetBuildTags(&TypeTag, &ToolTag);
 
     LOG(1, LOG_LINE_SEPARATOR, L"Displaying About/Info screen");
     if (AboutMenu.EntryCount == 0) {
@@ -211,9 +246,9 @@ VOID AboutrEFInd(VOID)
         MyFreePool(TempStr);
         AddMenuInfoLine(&AboutMenu, L"");
 #if defined(__MAKEWITH_GNUEFI)
-        AddMenuInfoLine(&AboutMenu, L"Built with GNU-EFI");
+        AddMenuInfoLine(&AboutMenu, PoolPrint(L"Built with GNU-EFI on %s/%s", TypeTag, ToolTag));
 #else
-        AddMenuInfoLine(&AboutMenu, L"Built with TianoCore EDK2");
+        AddMenuInfoLine(&AboutMenu, PoolPrint(L"Built with TianoCore EDK2 on %s/%s", TypeTag, ToolTag));
 #endif
         AddMenuInfoLine(&AboutMenu, L"");
         AddMenuInfoLine(&AboutMenu, L"For more information, see the rEFInd Web site:");
@@ -379,15 +414,19 @@ VOID LogBasicInfo(VOID) {
     UINT64     MaximumVariableSize;
     UINTN      EfiMajorVersion = ST->Hdr.Revision >> 16;
     CHAR16     *TempStr;
+    CHAR16     *TypeTag;
+    CHAR16     *ToolTag;
     EFI_GUID   ConsoleControlProtocolGuid = EFI_CONSOLE_CONTROL_PROTOCOL_GUID;
     EFI_GUID   UgaDrawProtocolGuid = EFI_UGA_DRAW_PROTOCOL_GUID;
     EFI_GUID   GraphicsOutputProtocolGuid = EFI_GRAPHICS_OUTPUT_PROTOCOL_GUID;
 
+    GetBuildTags(&TypeTag, &ToolTag);
+
     LOG(1, LOG_LINE_SEPARATOR, L"System information");
 #if defined(__MAKEWITH_GNUEFI)
-    LOG(1, LOG_LINE_NORMAL, L"rEFInd %s built with GNU-EFI", REFIND_VERSION);
+    LOG(1, LOG_LINE_NORMAL, L"rEFInd %s built with GNU-EFI on %s/%s", REFIND_VERSION, TypeTag, ToolTag);
 #else
-    LOG(1, LOG_LINE_NORMAL, L"rEFInd %s built with TianoCore EDK2", REFIND_VERSION);
+    LOG(1, LOG_LINE_NORMAL, L"rEFInd %s built with TianoCore EDK2 on %s/%s", REFIND_VERSION, TypeTag, ToolTag);
 #endif
     TempStr = GuidAsString(&(SelfVolume->PartGuid));
     LOG(1, LOG_LINE_NORMAL, L"rEFInd boot partition GUID: %s", TempStr);

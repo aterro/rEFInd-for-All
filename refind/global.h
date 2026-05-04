@@ -49,7 +49,14 @@
 #include <efi.h>
 #include <efilib.h>
 #else
+#ifdef __clang__
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wpragma-pack"
+#endif
 #include "../include/tiano_includes.h"
+#ifdef __clang__
+#pragma clang diagnostic pop
+#endif
 #endif
 #include "../EfiLib/GenericBdsLib.h"
 
