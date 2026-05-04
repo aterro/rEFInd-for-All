@@ -626,7 +626,11 @@ VOID ReadConfig(CHAR16 *FileName)
             HandleInt(TokenList, TokenCount, &(GlobalConfig.ScanDelay));
 
         } else if (MyStriCmp(TokenList[0], L"log_level") && (TokenCount == 2)) {
+#if !defined(MDEPKG_NDEBUG)
             HandleInt(TokenList, TokenCount, &(GlobalConfig.LogLevel));
+#else
+            GlobalConfig.LogLevel = 0;
+#endif
 
         } else if (MyStriCmp(TokenList[0], L"also_scan_dirs")) {
              HandleStrings(TokenList, TokenCount, &(GlobalConfig.AlsoScan));

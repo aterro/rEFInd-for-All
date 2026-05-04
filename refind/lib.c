@@ -55,7 +55,6 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#pragma pack(0)
 #include "global.h"
 #include "lib.h"
 #include "icns.h"
@@ -379,7 +378,9 @@ EFI_STATUS ReinitRefitLib(VOID)
         // hang or other problem....
         GlobalConfig.LogLevel = 0;
     } else {
+#if !defined(MDEPKG_NDEBUG)
         StartLogging(TRUE);
+#endif
     }
     return Status;
 }
