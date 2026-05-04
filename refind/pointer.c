@@ -49,7 +49,76 @@ POINTER_STATE State;
 BOOLEAN gSuppressPointerDraw = FALSE;
 BOOLEAN gPointerActuallyMoved = FALSE;
 BOOLEAN MouseTouchActive = TRUE;
-// Add this global boolean declaration
+
+static BOOLEAN IsImageFullyTransparent(EG_IMAGE *Image) {
+    UINTN x, y;
+
+    if (Image == NULL || Image->PixelData == NULL) {
+        return TRUE;
+    }
+
+    for (y = 0; y < Image->Height; y++) {
+        for (x = 0; x < Image->Width; x++) {
+            EG_PIXEL *Pixel = &Image->PixelData[y * Image->Width + x];
+            if (Pixel->a != 0) {
+                return FALSE;
+            }
+        }
+    }
+
+    return TRUE;
+}
+
+static EG_IMAGE *CreateFallbackNoTailCursor(VOID) {
+    UINTN x, y;
+    EG_IMAGE *Img = egCreateImage(32, 32, TRUE);
+
+    if (Img == NULL) {
+        return NULL;
+    }
+
+    static const UINT8 Map[32][32] = {
+        {1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
+        {1,2,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
+        {1,2,2,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
+        {1,2,2,2,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
+        {1,2,2,2,2,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
+        {1,2,2,2,2,2,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
+        {1,2,2,2,2,2,2,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
+        {1,2,2,2,2,2,2,2,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
+        {1,2,2,2,2,2,2,2,2,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
+        {1,2,2,2,2,2,2,2,2,2,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
+        {1,2,2,2,2,2,2,2,2,2,2,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
+        {1,2,2,2,2,2,2,2,2,2,2,2,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
+        {1,2,2,2,2,2,2,2,2,2,2,2,2,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
+        {1,2,2,2,2,1,1,1,1,1,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
+        {1,2,2,2,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
+        {1,2,2,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
+        {1,2,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
+        {1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0}
+    };
+
+    for (y = 0; y < 32; y++) {
+        for (x = 0; x < 32; x++) {
+            EG_PIXEL *Pixel = &Img->PixelData[y * 32 + x];
+
+            switch (Map[y][x]) {
+                case 1:
+                    Pixel->r = 0x1A; Pixel->g = 0x1A; Pixel->b = 0x1A; Pixel->a = 0xFF;
+                    break;
+                case 2:
+                    Pixel->r = 0xFF; Pixel->g = 0xFF; Pixel->b = 0xFF; Pixel->a = 0xFF;
+                    break;
+                default:
+                    Pixel->r = 0x00; Pixel->g = 0x00; Pixel->b = 0x00; Pixel->a = 0x00;
+                    break;
+            }
+        }
+    }
+
+    Img->HasAlpha = TRUE;
+    return Img;
+}
 
 ////////////////////////////////////////////////////////////////////////////////
 // Initialize all pointer devices
@@ -120,9 +189,15 @@ VOID pdInitialize() {
     // Set MouseTouchActive: True if either mouse or touch config is enabled AND a pointer device is available.
     MouseTouchActive = (GlobalConfig.EnableMouse || GlobalConfig.EnableTouch) ? PointerAvailable : FALSE;
     // --- END OF SURGICAL FIX ---
-// Load mouse icon - More robust loading (similar to RefindPlus logic)
     if (GlobalConfig.EnableMouse) {
-        MouseImage = BuiltinIcon(BUILTIN_ICON_MOUSE);
+        MouseImage = egFindIcon(L"mouse", GlobalConfig.IconSizes[ICON_SIZE_MOUSE]);
+        if (MouseImage != NULL && IsImageFullyTransparent(MouseImage)) {
+            egFreeImage(MouseImage);
+            MouseImage = NULL;
+        }
+        if (MouseImage == NULL) {
+            MouseImage = CreateFallbackNoTailCursor();
+        }
     }
 }
 ////////////////////////////////////////////////////////////////////////////////
