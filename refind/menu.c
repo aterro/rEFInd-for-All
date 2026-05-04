@@ -718,6 +718,9 @@ UINTN RunGenericMenu(IN REFIT_MENU_SCREEN *Screen,
                         MenuExit = MENU_EXIT_ZERO;
                         }
                         LOG(3, LOG_LINE_NORMAL, L"Pointer: No item, deselecting.\n"); }
+                        else if (!ClickDetected) {
+                        pdUpdateState();
+                        }
                         break;
                     case POINTER_LEFT_ARROW:
                         if (ClickDetected) {
@@ -727,6 +730,9 @@ UINTN RunGenericMenu(IN REFIT_MENU_SCREEN *Screen,
                         if (DrawSelection) {
                             DrawSelection = FALSE;
                             State.PaintSelection = TRUE;
+                        }
+                        if (!ClickDetected) {
+                            pdUpdateState();
                         }
                         break;
                     case POINTER_RIGHT_ARROW:
@@ -738,6 +744,9 @@ UINTN RunGenericMenu(IN REFIT_MENU_SCREEN *Screen,
                             DrawSelection = FALSE;
                             State.PaintSelection = TRUE;
                         }
+                        if (!ClickDetected) {
+                            pdUpdateState();
+                        }
                         break;
                     default:
                         if (!DrawSelection || Item != State.CurrentSelection) {
@@ -747,6 +756,8 @@ UINTN RunGenericMenu(IN REFIT_MENU_SCREEN *Screen,
                         DrawSelection = TRUE;
                         if (ClickDetected) {
                             MenuExit = MENU_EXIT_ENTER;
+                        } else {
+                            pdUpdateState();
                         }
                         break;
                 }
