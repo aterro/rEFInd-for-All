@@ -532,6 +532,30 @@ UINTN RunGenericMenu(IN REFIT_MENU_SCREEN *Screen,
         GetMenuItemCenter (Screen, &State, State.CurrentSelection, &PointerX, &PointerY);
         pdSetPosition (PointerX, PointerY);
         MainMenuFirstRun = FALSE;
+    } else if (PointerEnabled && StyleFunc == MainMenuStyle) {
+        UINTN HoverItem;
+
+        PointerStatusLocal = pdUpdateState();
+        CurrentPointerState = pdGetState();
+        PreviousPointerStateInMenu = CurrentPointerState;
+        HoverItem = FindMainMenuItem(Screen, &State, CurrentPointerState.X, CurrentPointerState.Y);
+
+        PointerActive = TRUE;
+        pointerShouldBeVisible = TRUE;
+
+        if (HoverItem == State.CurrentSelection) {
+            DrawSelection = TRUE;
+            State.PreviousSelection = State.CurrentSelection;
+        } else if (HoverItem != POINTER_NO_ITEM &&
+                   HoverItem != POINTER_LEFT_ARROW &&
+                   HoverItem != POINTER_RIGHT_ARROW) {
+            State.CurrentSelection = HoverItem;
+            State.PreviousSelection = HoverItem;
+            DrawSelection = TRUE;
+        } else {
+            State.PreviousSelection = State.CurrentSelection;
+            DrawSelection = FALSE;
+        }
     }
 
     // --- Special immediate key read logic: ONLY if Screen->TimeoutSeconds == -1 ---
@@ -590,7 +614,7 @@ UINTN RunGenericMenu(IN REFIT_MENU_SCREEN *Screen,
                 CurrentPointerState = pdGetState();
                 if (CurrentPointerState.X != PreviousPointerStateInMenu.X ||
                     CurrentPointerState.Y != PreviousPointerStateInMenu.Y ||
-                    CurrentPointerState.Press != PreviousPointerStateInMenu.Press) {
+                    (CurrentPointerState.Press && !PreviousPointerStateInMenu.Press)) {
                     if (InputType == INPUT_NO_EVENT) { // Prioritize keyboard input
                         InputType = INPUT_POINTER;
                     }
@@ -1240,7 +1264,7 @@ static VOID PaintAll(IN REFIT_MENU_SCREEN *Screen, IN SCROLL_STATE *State, UINTN
                               itemPosX[i], row1PosY);
         }
     }
-    if (!(GlobalConfig.HideUIFlags & HIDEUI_FLAG_LABEL) && (!PointerActive || (PointerActive && DrawSelection))) {
+    if (!(GlobalConfig.HideUIFlags & HIDEUI_FLAG_LABEL) && (!PointerEnabled || DrawSelection)) {
         DrawTextWithTransparency(L"", 0, textPosY);
         DrawTextWithTransparency(Screen->Entries[State->CurrentSelection]->Title,
                                  (UGAWidth - egComputeTextWidth(Screen->Entries[State->CurrentSelection]->Title)) >> 1,
@@ -1282,7 +1306,7 @@ static VOID PaintSelection(IN REFIT_MENU_SCREEN *Screen, IN SCROLL_STATE *State,
                           itemPosX[XSelectPrev], YPosPrev);
         DrawMainMenuEntry(Screen->Entries[State->CurrentSelection], TRUE,
                           itemPosX[XSelectCur], YPosCur);
-        if (!(GlobalConfig.HideUIFlags & HIDEUI_FLAG_LABEL) && (!PointerActive || (PointerActive && DrawSelection))) {
+        if (!(GlobalConfig.HideUIFlags & HIDEUI_FLAG_LABEL) && (!PointerEnabled || DrawSelection)) {
             DrawTextWithTransparency(L"", 0, textPosY);
             DrawTextWithTransparency(Screen->Entries[State->CurrentSelection]->Title,
                                      (UGAWidth - egComputeTextWidth(Screen->Entries[State->CurrentSelection]->Title)) >> 1,
@@ -1976,9 +2000,10 @@ UINTN RunMainMenu(REFIT_MENU_SCREEN *Screen, CHAR16** DefaultSelection, REFIT_ME
                                          &DefaultSubmenuIndex,
                                          &TempChosenEntry);
                LOG(3, LOG_LINE_NORMAL, L"RunGenericMenu() has returned %d", SubMenuExit);
-               // Propagate the exit condition from the sub-menu:
-               if (SubMenuExit == MENU_EXIT_ESCAPE || (SubMenuExit == MENU_EXIT_ENTER && TempChosenEntry != NULL && TempChosenEntry->Tag == TAG_RETURN)) {
-                   MenuExit = SubMenuExit; // Propagate the exit value
+               // Returning from a submenu should resume the main menu in-place.
+               if (SubMenuExit == MENU_EXIT_ESCAPE ||
+                   (SubMenuExit == MENU_EXIT_ENTER && TempChosenEntry != NULL && TempChosenEntry->Tag == TAG_RETURN)) {
+                   MenuExit = MENU_EXIT_ZERO;
                } else if (SubMenuExit == MENU_EXIT_DETAILS) {
                   // If the sub-menu entered another sub-menu (e.g., EditOptions)
                   if (!EditOptions((LOADER_ENTRY *) TempChosenEntry)) {

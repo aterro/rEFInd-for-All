@@ -1121,6 +1121,8 @@ efi_main (EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE *SystemTable)
 
             case TAG_ABOUT:    // About rEFInd
                 AboutrEFInd();
+                MyFreePool(SelectionName);
+                SelectionName = NULL;
                 break;
 
             case TAG_LOADER:   // Boot OS via .EFI loader
