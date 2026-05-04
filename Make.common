@@ -80,7 +80,7 @@ endif
 
 # ...for both GNU-EFI and TianoCore....
 OPTIMFLAGS      = -Os -fno-strict-aliasing -fno-tree-loop-distribute-patterns
-CFLAGS          = $(OPTIMFLAGS) -fno-stack-protector -fshort-wchar -Wall
+CFLAGS          = $(OPTIMFLAGS) -fno-stack-protector -fshort-wchar -Wall -DMDEPKG_NDEBUG
 
 # ...for GNU-EFI....
 GNUEFI_CFLAGS   = -fpic -I$(EFIINC) -I$(EFIINC)/$(ARCH) -I$(EFIINC)/protocol -I../include -I../refind -I../libeg -I../mok -I../gzip
