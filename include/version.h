@@ -13,6 +13,6 @@
 #ifndef __VERSION_H
 #define __VERSION_H
 
-#define REFIND_VERSION L"1.2.2-Abz-Mod-for-All"
+#define REFIND_VERSION L"1.2.2-For-All-by-Abz"
 
 #endif
