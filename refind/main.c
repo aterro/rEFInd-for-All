@@ -651,10 +651,10 @@ static BOOLEAN TryAcpiShutdown(VOID) {
         }
     }
 
-    ALT_LOG(1, LOG_LINE_NORMAL, L"ACPI halt probe found SLP_TYP=%d PM1a=0x%08x", SleepType, Port);
+    LOG(1, LOG_LINE_NORMAL, L"ACPI halt probe found SLP_TYP=%d PM1a=0x%08x", SleepType, Port);
     if (Port && SleepType >= 0 && SleepType < 8) {
         AcpiWritePmControl((UINT16) (Port & 0xFFFF), (UINT16) (ACPI_SLP_EN | (SleepType << ACPI_SLP_TYP_OFFSET)));
-        REFIT_CALL_1_WRAPPER(BS->Stall, 1500000);
+        refit_call1_wrapper(BS->Stall, 1500000);
         return TRUE;
     }
 
