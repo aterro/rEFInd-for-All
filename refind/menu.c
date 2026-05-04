@@ -501,6 +501,7 @@ UINTN RunGenericMenu(IN REFIT_MENU_SCREEN *Screen,
     POINTER_STATE PreviousPointerStateInMenu = {0};
     BOOLEAN ClickDetected = FALSE;
     static BOOLEAN pointerShouldBeVisible = FALSE;
+    static BOOLEAN MainMenuFirstRun = TRUE;
     BOOLEAN TimerPermanentlyDisabled = FALSE; // Initialize to FALSE
 
     LOG(2, LOG_LINE_NORMAL, L"Running menu screen: '%s'\n", Screen->Title);
@@ -523,10 +524,11 @@ UINTN RunGenericMenu(IN REFIT_MENU_SCREEN *Screen,
     }
 
     // Position pointer at center of default selection
-    if (PointerEnabled && StyleFunc == MainMenuStyle) {
+    if (PointerEnabled && StyleFunc == MainMenuStyle && MainMenuFirstRun) {
         UINTN PointerX, PointerY;
         GetMenuItemCenter (Screen, &State, State.CurrentSelection, &PointerX, &PointerY);
         pdSetPosition (PointerX, PointerY);
+        MainMenuFirstRun = FALSE;
     }
 
     // --- Special immediate key read logic: ONLY if Screen->TimeoutSeconds == -1 ---
