@@ -86,6 +86,9 @@
 #define MENU_FUNCTION_PAINT_SELECTION (3)
 #define MENU_FUNCTION_PAINT_TIMEOUT   (4)
 #define MENU_FUNCTION_PAINT_HINTS     (5)
+#define MENU_FAST_LOOP_DELAY_US       (500)
+#define MENU_IDLE_LOOP_DELAY_US       (4000)
+#define MENU_ACTIVE_INPUT_WINDOW_MS   (100)
 
 // typedef VOID (*MENU_STYLE_FUNC)(IN REFIT_MENU_SCREEN *Screen, IN SCROLL_STATE *State, IN UINTN Function, IN CHAR16 *ParamText);
 static CHAR16 ArrowUp[2] = { ARROW_UP, 0 };
@@ -568,6 +571,8 @@ UINTN RunGenericMenu(IN REFIT_MENU_SCREEN *Screen,
     LOG(3, LOG_LINE_NORMAL, L"About to enter while() loop in RunGenericMenu()\n");
 
     while (MenuExit == MENU_EXIT_ZERO) {
+        InputDetectedThisIteration = FALSE;
+
         // Poll for keyboard
         Status = refit_call2_wrapper(gST->ConIn->ReadKeyStroke, gST->ConIn, &key);
         if (Status == EFI_SUCCESS) {
@@ -711,16 +716,12 @@ UINTN RunGenericMenu(IN REFIT_MENU_SCREEN *Screen,
                         if(DrawSelection) { 
                         DrawSelection = FALSE;
                         State.PaintSelection = TRUE;
-                        State.PaintAll = TRUE;
                         if (ClickDetected || CurrentPointerState.Press) {
                         gSuppressPointerDraw = FALSE;
                         pdDraw();
                         MenuExit = MENU_EXIT_ZERO;
                         }
                         LOG(3, LOG_LINE_NORMAL, L"Pointer: No item, deselecting.\n"); }
-                        else if (!ClickDetected) {
-                        pdUpdateState();
-                        }
                         break;
                     case POINTER_LEFT_ARROW:
                         if (ClickDetected) {
@@ -730,9 +731,6 @@ UINTN RunGenericMenu(IN REFIT_MENU_SCREEN *Screen,
                         if (DrawSelection) {
                             DrawSelection = FALSE;
                             State.PaintSelection = TRUE;
-                        }
-                        if (!ClickDetected) {
-                            pdUpdateState();
                         }
                         break;
                     case POINTER_RIGHT_ARROW:
@@ -744,9 +742,6 @@ UINTN RunGenericMenu(IN REFIT_MENU_SCREEN *Screen,
                             DrawSelection = FALSE;
                             State.PaintSelection = TRUE;
                         }
-                        if (!ClickDetected) {
-                            pdUpdateState();
-                        }
                         break;
                     default:
                         if (!DrawSelection || Item != State.CurrentSelection) {
@@ -756,17 +751,38 @@ UINTN RunGenericMenu(IN REFIT_MENU_SCREEN *Screen,
                         DrawSelection = TRUE;
                         if (ClickDetected) {
                             MenuExit = MENU_EXIT_ENTER;
-                        } else {
-                            pdUpdateState();
                         }
                         break;
                 }
             }
             PreviousPointerStateInMenu = CurrentPointerState;
+
+            if (MenuExit == MENU_EXIT_ZERO) {
+                if (State.PaintAll) {
+                    if (PointerEnabled && pointerShouldBeVisible) { pdClear(); }
+                    StyleFunc(Screen, &State, MENU_FUNCTION_PAINT_ALL, NULL);
+                    State.PaintAll = FALSE;
+                    State.PaintSelection = FALSE;
+                } else if (State.PaintSelection) {
+                    if (PointerEnabled && pointerShouldBeVisible) { pdClear(); }
+                    gSuppressPointerDraw = TRUE;
+                    StyleFunc(Screen, &State, MENU_FUNCTION_PAINT_SELECTION, NULL);
+                    State.PaintSelection = FALSE;
+                    gSuppressPointerDraw = FALSE;
+                }
+
+                if (PointerEnabled && pointerShouldBeVisible && !gSuppressPointerDraw) {
+                    pdDraw();
+                }
+            }
         }
 
-        // Add a small stall to prevent high CPU usage
-        refit_call1_wrapper(gBS->Stall, 1000); // 1ms stall
+        if (pointerShouldBeVisible || PointerActive ||
+            (CurrentTimeMs - LastInputMs) <= MENU_ACTIVE_INPUT_WINDOW_MS) {
+            refit_call1_wrapper(gBS->Stall, MENU_FAST_LOOP_DELAY_US);
+        } else {
+            refit_call1_wrapper(gBS->Stall, MENU_IDLE_LOOP_DELAY_US);
+        }
     } // END while (MenuExit == MENU_EXIT_ZERO) loop
 
     // Reset pointer visibility when exiting this menu instance

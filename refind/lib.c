@@ -378,7 +378,9 @@ EFI_STATUS ReinitRefitLib(VOID)
         // hang or other problem....
         GlobalConfig.LogLevel = 0;
     } else {
+#if !defined(MDEPKG_NDEBUG)
         StartLogging(TRUE);
+#endif
     }
     return Status;
 }

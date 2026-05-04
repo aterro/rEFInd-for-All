@@ -536,10 +536,12 @@ efi_main (EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE *SystemTable)
     // by the drivers.
     ScanVolumes();
     ReadConfig(GlobalConfig.ConfigFilename);
+#if !defined(MDEPKG_NDEBUG)
     if (GlobalConfig.LogLevel > 0) {
         StartLogging(FALSE);
         LogBasicInfo();
     }
+#endif
     LOG(3, LOG_LINE_NORMAL, L"GlobalConfig.DontScanFiles is '%s'", GlobalConfig.DontScanFiles);
     MokProtocol = SecureBootSetup();
     if (LoadDrivers())
