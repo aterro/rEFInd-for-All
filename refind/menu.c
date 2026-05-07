@@ -86,6 +86,9 @@
 #define MENU_FUNCTION_PAINT_SELECTION (3)
 #define MENU_FUNCTION_PAINT_TIMEOUT   (4)
 #define MENU_FUNCTION_PAINT_HINTS     (5)
+#define MENU_FAST_LOOP_DELAY_US       (500)
+#define MENU_IDLE_LOOP_DELAY_US       (4000)
+#define MENU_ACTIVE_INPUT_WINDOW_MS   (100)
 
 // typedef VOID (*MENU_STYLE_FUNC)(IN REFIT_MENU_SCREEN *Screen, IN SCROLL_STATE *State, IN UINTN Function, IN CHAR16 *ParamText);
 static CHAR16 ArrowUp[2] = { ARROW_UP, 0 };
@@ -100,7 +103,6 @@ static UINTN TileSizes[2] = { 144, 64 };
 
 static EG_IMAGE *SelectionImages[2] = { NULL, NULL };
 static EG_PIXEL SelectionBackgroundPixel = { 0xff, 0xff, 0xff, 0 };
-static BOOLEAN MainMenuPointerPrimed = FALSE;
 //
 #ifndef MAX_UINT64
 #define MAX_UINT64 ((UINT64) ~0ULL)  // All bits set for unsigned long long
@@ -502,6 +504,7 @@ UINTN RunGenericMenu(IN REFIT_MENU_SCREEN *Screen,
     POINTER_STATE PreviousPointerStateInMenu = {0};
     BOOLEAN ClickDetected = FALSE;
     static BOOLEAN pointerShouldBeVisible = FALSE;
+    static BOOLEAN MainMenuFirstRun = TRUE;
     BOOLEAN TimerPermanentlyDisabled = FALSE; // Initialize to FALSE
 
     LOG(2, LOG_LINE_NORMAL, L"Running menu screen: '%s'\n", Screen->Title);
@@ -524,11 +527,35 @@ UINTN RunGenericMenu(IN REFIT_MENU_SCREEN *Screen,
     }
 
     // Position pointer at center of default selection
-    if (PointerEnabled && StyleFunc == MainMenuStyle && !MainMenuPointerPrimed) {
+    if (PointerEnabled && StyleFunc == MainMenuStyle && MainMenuFirstRun) {
         UINTN PointerX, PointerY;
         GetMenuItemCenter (Screen, &State, State.CurrentSelection, &PointerX, &PointerY);
         pdSetPosition (PointerX, PointerY);
-        MainMenuPointerPrimed = TRUE;
+        MainMenuFirstRun = FALSE;
+    } else if (PointerEnabled && StyleFunc == MainMenuStyle) {
+        UINTN HoverItem;
+
+        PointerStatusLocal = pdUpdateState();
+        CurrentPointerState = pdGetState();
+        PreviousPointerStateInMenu = CurrentPointerState;
+        HoverItem = FindMainMenuItem(Screen, &State, CurrentPointerState.X, CurrentPointerState.Y);
+
+        PointerActive = TRUE;
+        pointerShouldBeVisible = TRUE;
+
+        if (HoverItem == State.CurrentSelection) {
+            DrawSelection = TRUE;
+            State.PreviousSelection = State.CurrentSelection;
+        } else if (HoverItem != POINTER_NO_ITEM &&
+                   HoverItem != POINTER_LEFT_ARROW &&
+                   HoverItem != POINTER_RIGHT_ARROW) {
+            State.CurrentSelection = HoverItem;
+            State.PreviousSelection = HoverItem;
+            DrawSelection = TRUE;
+        } else {
+            State.PreviousSelection = State.CurrentSelection;
+            DrawSelection = FALSE;
+        }
     }
 
     // --- Special immediate key read logic: ONLY if Screen->TimeoutSeconds == -1 ---
@@ -568,6 +595,8 @@ UINTN RunGenericMenu(IN REFIT_MENU_SCREEN *Screen,
     LOG(3, LOG_LINE_NORMAL, L"About to enter while() loop in RunGenericMenu()\n");
 
     while (MenuExit == MENU_EXIT_ZERO) {
+        InputDetectedThisIteration = FALSE;
+
         // Poll for keyboard
         Status = refit_call2_wrapper(gST->ConIn->ReadKeyStroke, gST->ConIn, &key);
         if (Status == EFI_SUCCESS) {
@@ -585,7 +614,7 @@ UINTN RunGenericMenu(IN REFIT_MENU_SCREEN *Screen,
                 CurrentPointerState = pdGetState();
                 if (CurrentPointerState.X != PreviousPointerStateInMenu.X ||
                     CurrentPointerState.Y != PreviousPointerStateInMenu.Y ||
-                    CurrentPointerState.Press != PreviousPointerStateInMenu.Press) {
+                    (CurrentPointerState.Press && !PreviousPointerStateInMenu.Press)) {
                     if (InputType == INPUT_NO_EVENT) { // Prioritize keyboard input
                         InputType = INPUT_POINTER;
                     }
@@ -710,8 +739,7 @@ UINTN RunGenericMenu(IN REFIT_MENU_SCREEN *Screen,
                     case POINTER_NO_ITEM:
                         if(DrawSelection) { 
                         DrawSelection = FALSE;
-                        State.PaintSelection = FALSE;
-                        State.PaintAll = TRUE;
+                        State.PaintSelection = TRUE;
                         if (ClickDetected || CurrentPointerState.Press) {
                         gSuppressPointerDraw = FALSE;
                         pdDraw();
@@ -724,14 +752,20 @@ UINTN RunGenericMenu(IN REFIT_MENU_SCREEN *Screen,
                             UpdateScroll(&State, SCROLL_PAGE_UP);
                             State.PaintAll = TRUE;
                         }
-                        DrawSelection = FALSE;
+                        if (DrawSelection) {
+                            DrawSelection = FALSE;
+                            State.PaintSelection = TRUE;
+                        }
                         break;
                     case POINTER_RIGHT_ARROW:
                         if (ClickDetected) {
                             UpdateScroll(&State, SCROLL_PAGE_DOWN);
                             State.PaintAll = TRUE;
                         }
-                        DrawSelection = FALSE;
+                        if (DrawSelection) {
+                            DrawSelection = FALSE;
+                            State.PaintSelection = TRUE;
+                        }
                         break;
                     default:
                         if (!DrawSelection || Item != State.CurrentSelection) {
@@ -746,10 +780,33 @@ UINTN RunGenericMenu(IN REFIT_MENU_SCREEN *Screen,
                 }
             }
             PreviousPointerStateInMenu = CurrentPointerState;
+
+            if (MenuExit == MENU_EXIT_ZERO) {
+                if (State.PaintAll) {
+                    if (PointerEnabled && pointerShouldBeVisible) { pdClear(); }
+                    StyleFunc(Screen, &State, MENU_FUNCTION_PAINT_ALL, NULL);
+                    State.PaintAll = FALSE;
+                    State.PaintSelection = FALSE;
+                } else if (State.PaintSelection) {
+                    if (PointerEnabled && pointerShouldBeVisible) { pdClear(); }
+                    gSuppressPointerDraw = TRUE;
+                    StyleFunc(Screen, &State, MENU_FUNCTION_PAINT_SELECTION, NULL);
+                    State.PaintSelection = FALSE;
+                    gSuppressPointerDraw = FALSE;
+                }
+
+                if (PointerEnabled && pointerShouldBeVisible && !gSuppressPointerDraw) {
+                    pdDraw();
+                }
+            }
         }
 
-        // Add a small stall to prevent high CPU usage
-        refit_call1_wrapper(gBS->Stall, 1000); // 1ms stall
+        if (pointerShouldBeVisible || PointerActive ||
+            (CurrentTimeMs - LastInputMs) <= MENU_ACTIVE_INPUT_WINDOW_MS) {
+            refit_call1_wrapper(gBS->Stall, MENU_FAST_LOOP_DELAY_US);
+        } else {
+            refit_call1_wrapper(gBS->Stall, MENU_IDLE_LOOP_DELAY_US);
+        }
     } // END while (MenuExit == MENU_EXIT_ZERO) loop
 
     // Reset pointer visibility when exiting this menu instance
@@ -1207,7 +1264,7 @@ static VOID PaintAll(IN REFIT_MENU_SCREEN *Screen, IN SCROLL_STATE *State, UINTN
                               itemPosX[i], row1PosY);
         }
     }
-    if (!(GlobalConfig.HideUIFlags & HIDEUI_FLAG_LABEL) && (!PointerActive || (PointerActive && DrawSelection))) {
+    if (!(GlobalConfig.HideUIFlags & HIDEUI_FLAG_LABEL) && (!PointerEnabled || DrawSelection)) {
         DrawTextWithTransparency(L"", 0, textPosY);
         DrawTextWithTransparency(Screen->Entries[State->CurrentSelection]->Title,
                                  (UGAWidth - egComputeTextWidth(Screen->Entries[State->CurrentSelection]->Title)) >> 1,
@@ -1249,7 +1306,7 @@ static VOID PaintSelection(IN REFIT_MENU_SCREEN *Screen, IN SCROLL_STATE *State,
                           itemPosX[XSelectPrev], YPosPrev);
         DrawMainMenuEntry(Screen->Entries[State->CurrentSelection], TRUE,
                           itemPosX[XSelectCur], YPosCur);
-        if (!(GlobalConfig.HideUIFlags & HIDEUI_FLAG_LABEL) && (!PointerActive || (PointerActive && DrawSelection))) {
+        if (!(GlobalConfig.HideUIFlags & HIDEUI_FLAG_LABEL) && (!PointerEnabled || DrawSelection)) {
             DrawTextWithTransparency(L"", 0, textPosY);
             DrawTextWithTransparency(Screen->Entries[State->CurrentSelection]->Title,
                                      (UGAWidth - egComputeTextWidth(Screen->Entries[State->CurrentSelection]->Title)) >> 1,
@@ -1943,9 +2000,10 @@ UINTN RunMainMenu(REFIT_MENU_SCREEN *Screen, CHAR16** DefaultSelection, REFIT_ME
                                          &DefaultSubmenuIndex,
                                          &TempChosenEntry);
                LOG(3, LOG_LINE_NORMAL, L"RunGenericMenu() has returned %d", SubMenuExit);
-               // Propagate the exit condition from the sub-menu:
-               if (SubMenuExit == MENU_EXIT_ESCAPE || (SubMenuExit == MENU_EXIT_ENTER && TempChosenEntry != NULL && TempChosenEntry->Tag == TAG_RETURN)) {
-                   MenuExit = SubMenuExit; // Propagate the exit value
+               // Returning from a submenu should resume the main menu in-place.
+               if (SubMenuExit == MENU_EXIT_ESCAPE ||
+                   (SubMenuExit == MENU_EXIT_ENTER && TempChosenEntry != NULL && TempChosenEntry->Tag == TAG_RETURN)) {
+                   MenuExit = MENU_EXIT_ZERO;
                } else if (SubMenuExit == MENU_EXIT_DETAILS) {
                   // If the sub-menu entered another sub-menu (e.g., EditOptions)
                   if (!EditOptions((LOADER_ENTRY *) TempChosenEntry)) {

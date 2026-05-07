@@ -80,6 +80,89 @@
 #define LibLocateProtocol EfiLibLocateProtocol
 #endif
 
+//
+// Some built-in menu definitions....
+
+REFIT_MENU_ENTRY MenuEntryReturn   = { L"Return to Main Menu", TAG_RETURN, 1, 0, 0, NULL, NULL, NULL };
+
+REFIT_MENU_SCREEN MainMenu       = { L"Main Menu", NULL, 0, NULL, 0, NULL, 0, L"Automatic boot",
+                                     L"Use arrow keys to move cursor; Enter to boot;",
+                                     L"Insert, Tab, or F2 for more options; Esc or Backspace to refresh" };
+static REFIT_MENU_SCREEN AboutMenu      = { L"About", NULL, 0, NULL, 0, NULL, 0, NULL, L"Press Enter to return to main menu", L"" };
+
+REFIT_CONFIG GlobalConfig = { /* TextOnly = */ FALSE,
+                              /* ScanAllLinux = */ TRUE,
+                              /* DeepLegacyScan = */ FALSE,
+                              /* EnableAndLockVMX = */ FALSE,
+                              /* FoldLinuxKernels = */ TRUE,
+                              /* EnableMouse = */ FALSE,
+                              /* EnableTouch = */ FALSE,
+                              /* HiddenTags = */ TRUE,
+                              /* UseNvram = */ TRUE,
+                              /* ShutdownAfterTimeout = */ FALSE,
+                              /* Install = */ FALSE,
+                              /* WriteSystemdVars = */ FALSE,
+                              /* FollowSymlinks = */ FALSE,
+#ifdef EFIAARCH64
+                              /* GzippedLoaders = */ TRUE,
+#else
+                              /* GzippedLoaders = */ FALSE,
+#endif
+                              /* RequestedScreenWidth = */ 0,
+                              /* RequestedScreenHeight = */ 0,
+                              /* BannerBottomEdge = */ 0,
+                              /* RequestedTextMode = */ DONT_CHANGE_TEXT_MODE,
+                              /* Timeout = */ 20,
+                              /* HideUIFlags = */ 0,
+                              /* MaxTags = */ 0,
+                              /* GraphicsFor = */ GRAPHICS_FOR_OSX,
+                              /* LegacyType = */ LEGACY_TYPE_MAC,
+                              /* ScanDelay = */ 0,
+                              /* ScreensaverTime = */ 0,
+                              /* MouseSpeed = */ 4,
+                              /* IconSizes = */ { DEFAULT_BIG_ICON_SIZE / 4,
+                                                  DEFAULT_SMALL_ICON_SIZE,
+                                                  DEFAULT_BIG_ICON_SIZE,
+                                                  DEFAULT_MOUSE_SIZE },
+                              /* BannerScale = */ BANNER_NOSCALE,
+                              /* LogLevel = */ 0,
+                              /* *DiscoveredRoot = */ NULL,
+                              /* *SelfDevicePath = */ NULL,
+                              /* *BannerFileName = */ NULL,
+                              /* *ScreenBackground = */ NULL,
+                              /* *ConfigFilename = */ CONFIG_FILE_NAME,
+                              /* *SelectionSmallFileName = */ NULL,
+                              /* *SelectionBigFileName = */ NULL,
+                              /* *DefaultSelection = */ NULL,
+                              /* *AlsoScan = */ NULL,
+                              /* ToolLocations = */ NULL,
+                              /* *ExtraToolLocations = */ NULL,
+                              /* *DontScanVolumes = */ NULL,
+                              /* *DontScanDirs = */ NULL,
+                              /* *DontScanFiles = */ NULL,
+                              /* *DontScanTools = */ NULL,
+                              /* *DontScanFirmware = */ NULL,
+                              /* *WindowsRecoveryFiles = */ NULL,
+                              /* *MacOSRecoveryFiles = */ NULL,
+                              /* *DriverDirs = */ NULL,
+                              /* *IconsDir = */ NULL,
+                              /* *LinuxPrefixes = */ NULL,
+                              /* *LinuxMatchPatterns = */ NULL,
+                              /* *ExtraKernelVersionStrings = */ NULL,
+                              /* *SpoofOSXVersion = */ NULL,
+                              /* CsrValues = */ NULL,
+                              /* ShowTools = */ { TAG_SHELL, TAG_MEMTEST, TAG_GDISK, TAG_APPLE_RECOVERY, TAG_WINDOWS_RECOVERY,
+                                                  TAG_MOK_TOOL, TAG_ABOUT, TAG_HIDDEN, TAG_SHUTDOWN, TAG_REBOOT, TAG_FIRMWARE,
+                                                  TAG_FWUPDATE_TOOL, 0, 0, 0, 0, 0, 0, 0, 0, 0 }
+                            };
+
+CHAR16 *gHiddenTools = NULL;
+
+EFI_GUID RefindGuid = REFIND_GUID_VALUE;
+
+//
+// misc functions
+//
 #define ACPI_RSDP_SIGNATURE        "RSD PTR "
 #define ACPI_FADT_SIGNATURE        "FACP"
 #define ACPI_DSDT_SIGNATURE        "DSDT"
@@ -578,96 +661,46 @@ static BOOLEAN TryAcpiShutdown(VOID) {
     return FALSE;
 #endif
 } // static BOOLEAN TryAcpiShutdown()
-
-//
-// Some built-in menu definitions....
-
-REFIT_MENU_ENTRY MenuEntryReturn   = { L"Return to Main Menu", TAG_RETURN, 1, 0, 0, NULL, NULL, NULL };
-
-REFIT_MENU_SCREEN MainMenu       = { L"Main Menu", NULL, 0, NULL, 0, NULL, 0, L"Automatic boot",
-                                     L"Use arrow keys to move cursor; Enter to boot;",
-                                     L"Insert, Tab, or F2 for more options; Esc or Backspace to refresh" };
-static REFIT_MENU_SCREEN AboutMenu      = { L"About", NULL, 0, NULL, 0, NULL, 0, NULL, L"Press Enter to return to main menu", L"" };
-
-REFIT_CONFIG GlobalConfig = { /* TextOnly = */ FALSE,
-                              /* ScanAllLinux = */ TRUE,
-                              /* DeepLegacyScan = */ FALSE,
-                              /* EnableAndLockVMX = */ FALSE,
-                              /* FoldLinuxKernels = */ TRUE,
-                              /* EnableMouse = */ FALSE,
-                              /* EnableTouch = */ FALSE,
-                              /* HiddenTags = */ TRUE,
-                              /* UseNvram = */ TRUE,
-                              /* ShutdownAfterTimeout = */ FALSE,
-                              /* Install = */ FALSE,
-                              /* WriteSystemdVars = */ FALSE,
-                              /* FollowSymlinks = */ FALSE,
-#ifdef EFIAARCH64
-                              /* GzippedLoaders = */ TRUE,
+static VOID GetBuildTags(CHAR16 **TypeTag, CHAR16 **ToolTag)
+{
+    if (TypeTag != NULL) {
+#if defined(__BUILDING_ON_WINDOWS__)
+        *TypeTag = L"Windows";
+#elif defined(__APPLE__)
+        *TypeTag = L"macOS";
+#elif defined(__linux__)
+        *TypeTag = L"Linux";
+#elif defined(__FreeBSD__)
+        *TypeTag = L"FreeBSD";
+#elif defined(_WIN32) || defined(WIN32)
+        *TypeTag = L"Windows";
+#elif defined(__unix__) || defined(__MACH__)
+        *TypeTag = L"SomeBSD";
 #else
-                              /* GzippedLoaders = */ FALSE,
+        *TypeTag = L"Other";
 #endif
-                              /* RequestedScreenWidth = */ 0,
-                              /* RequestedScreenHeight = */ 0,
-                              /* BannerBottomEdge = */ 0,
-                              /* RequestedTextMode = */ DONT_CHANGE_TEXT_MODE,
-                              /* Timeout = */ 20,
-                              /* HideUIFlags = */ 0,
-                              /* MaxTags = */ 0,
-                              /* GraphicsFor = */ GRAPHICS_FOR_OSX,
-                              /* LegacyType = */ LEGACY_TYPE_MAC,
-                              /* ScanDelay = */ 0,
-                              /* ScreensaverTime = */ 0,
-                              /* MouseSpeed = */ 4,
-                              /* IconSizes = */ { DEFAULT_BIG_ICON_SIZE / 4,
-                                                  DEFAULT_SMALL_ICON_SIZE,
-                                                  DEFAULT_BIG_ICON_SIZE,
-                                                  DEFAULT_MOUSE_SIZE },
-                              /* BannerScale = */ BANNER_NOSCALE,
-                              /* LogLevel = */ 0,
-                              /* *DiscoveredRoot = */ NULL,
-                              /* *SelfDevicePath = */ NULL,
-                              /* *BannerFileName = */ NULL,
-                              /* *ScreenBackground = */ NULL,
-                              /* *ConfigFilename = */ CONFIG_FILE_NAME,
-                              /* *SelectionSmallFileName = */ NULL,
-                              /* *SelectionBigFileName = */ NULL,
-                              /* *DefaultSelection = */ NULL,
-                              /* *AlsoScan = */ NULL,
-                              /* ToolLocations = */ NULL,
-                              /* *ExtraToolLocations = */ NULL,
-                              /* *DontScanVolumes = */ NULL,
-                              /* *DontScanDirs = */ NULL,
-                              /* *DontScanFiles = */ NULL,
-                              /* *DontScanTools = */ NULL,
-                              /* *DontScanFirmware = */ NULL,
-                              /* *WindowsRecoveryFiles = */ NULL,
-                              /* *MacOSRecoveryFiles = */ NULL,
-                              /* *DriverDirs = */ NULL,
-                              /* *IconsDir = */ NULL,
-                              /* *LinuxPrefixes = */ NULL,
-                              /* *LinuxMatchPatterns = */ NULL,
-                              /* *ExtraKernelVersionStrings = */ NULL,
-                              /* *SpoofOSXVersion = */ NULL,
-                              /* CsrValues = */ NULL,
-                              /* ShowTools = */ { TAG_SHELL, TAG_MEMTEST, TAG_GDISK, TAG_APPLE_RECOVERY, TAG_WINDOWS_RECOVERY,
-                                                  TAG_MOK_TOOL, TAG_ABOUT, TAG_HIDDEN, TAG_SHUTDOWN, TAG_REBOOT, TAG_FIRMWARE,
-                                                  TAG_FWUPDATE_TOOL, 0, 0, 0, 0, 0, 0, 0, 0, 0 }
-                            };
+    }
 
-CHAR16 *gHiddenTools = NULL;
-
-EFI_GUID RefindGuid = REFIND_GUID_VALUE;
-
-//
-// misc functions
-//
+    if (ToolTag != NULL) {
+#if defined(__clang__)
+        *ToolTag = L"Clang";
+#elif defined(__GNUC__)
+        *ToolTag = L"GCC";
+#else
+        *ToolTag = L"Unknown";
+#endif
+    }
+}
 
 VOID AboutrEFInd(VOID)
 {
     CHAR16     *FirmwareVendor;
     CHAR16     *TempStr;
+    CHAR16     *TypeTag;
+    CHAR16     *ToolTag;
     UINT32     CsrStatus;
+
+    GetBuildTags(&TypeTag, &ToolTag);
 
     LOG(1, LOG_LINE_SEPARATOR, L"Displaying About/Info screen");
     if (AboutMenu.EntryCount == 0) {
@@ -710,9 +743,9 @@ VOID AboutrEFInd(VOID)
         MyFreePool(TempStr);
         AddMenuInfoLine(&AboutMenu, L"");
 #if defined(__MAKEWITH_GNUEFI)
-        AddMenuInfoLine(&AboutMenu, L"Built with GNU-EFI");
+        AddMenuInfoLine(&AboutMenu, PoolPrint(L"Built with GNU-EFI on %s/%s", TypeTag, ToolTag));
 #else
-        AddMenuInfoLine(&AboutMenu, L"Built with TianoCore EDK2");
+        AddMenuInfoLine(&AboutMenu, PoolPrint(L"Built with TianoCore EDK2 on %s/%s", TypeTag, ToolTag));
 #endif
         AddMenuInfoLine(&AboutMenu, L"");
         AddMenuInfoLine(&AboutMenu, L"For more information, see the rEFInd Web site:");
@@ -878,15 +911,19 @@ VOID LogBasicInfo(VOID) {
     UINT64     MaximumVariableSize;
     UINTN      EfiMajorVersion = ST->Hdr.Revision >> 16;
     CHAR16     *TempStr;
+    CHAR16     *TypeTag;
+    CHAR16     *ToolTag;
     EFI_GUID   ConsoleControlProtocolGuid = EFI_CONSOLE_CONTROL_PROTOCOL_GUID;
     EFI_GUID   UgaDrawProtocolGuid = EFI_UGA_DRAW_PROTOCOL_GUID;
     EFI_GUID   GraphicsOutputProtocolGuid = EFI_GRAPHICS_OUTPUT_PROTOCOL_GUID;
 
+    GetBuildTags(&TypeTag, &ToolTag);
+
     LOG(1, LOG_LINE_SEPARATOR, L"System information");
 #if defined(__MAKEWITH_GNUEFI)
-    LOG(1, LOG_LINE_NORMAL, L"rEFInd %s built with GNU-EFI", REFIND_VERSION);
+    LOG(1, LOG_LINE_NORMAL, L"rEFInd %s built with GNU-EFI on %s/%s", REFIND_VERSION, TypeTag, ToolTag);
 #else
-    LOG(1, LOG_LINE_NORMAL, L"rEFInd %s built with TianoCore EDK2", REFIND_VERSION);
+    LOG(1, LOG_LINE_NORMAL, L"rEFInd %s built with TianoCore EDK2 on %s/%s", REFIND_VERSION, TypeTag, ToolTag);
 #endif
     TempStr = GuidAsString(&(SelfVolume->PartGuid));
     LOG(1, LOG_LINE_NORMAL, L"rEFInd boot partition GUID: %s", TempStr);
@@ -996,10 +1033,12 @@ efi_main (EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE *SystemTable)
     // by the drivers.
     ScanVolumes();
     ReadConfig(GlobalConfig.ConfigFilename);
+#if !defined(MDEPKG_NDEBUG)
     if (GlobalConfig.LogLevel > 0) {
         StartLogging(FALSE);
         LogBasicInfo();
     }
+#endif
     LOG(3, LOG_LINE_NORMAL, L"GlobalConfig.DontScanFiles is '%s'", GlobalConfig.DontScanFiles);
     MokProtocol = SecureBootSetup();
     if (LoadDrivers())
@@ -1074,8 +1113,7 @@ efi_main (EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE *SystemTable)
             case TAG_SHUTDOWN: // Shut Down
                 TerminateScreen();
                 LOG(1, LOG_LINE_SEPARATOR, L"Shutting down system");
-                if (TryAcpiShutdown())
-                    LOG(1, LOG_LINE_NORMAL, L"ACPI halt path returned control; falling back to UEFI shutdown");
+                TryAcpiShutdown();
                 refit_call4_wrapper(RT->ResetSystem, EfiResetShutdown, EFI_SUCCESS, 0, NULL);
                 LOG(1, LOG_LINE_NORMAL, L"Shutdown FAILED!");
                 MainLoopRunning = FALSE;   // just in case we get this far
@@ -1083,6 +1121,8 @@ efi_main (EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE *SystemTable)
 
             case TAG_ABOUT:    // About rEFInd
                 AboutrEFInd();
+                MyFreePool(SelectionName);
+                SelectionName = NULL;
                 break;
 
             case TAG_LOADER:   // Boot OS via .EFI loader
