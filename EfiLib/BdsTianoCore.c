@@ -51,7 +51,9 @@ BdsLibConnectDevicePath (
   EFI_DEVICE_PATH_PROTOCOL  *RemainingDevicePath;
   EFI_DEVICE_PATH_PROTOCOL  *Next;
   EFI_HANDLE                Handle;
+#ifdef __MAKEWITH_TIANO
   EFI_HANDLE                PreviousHandle;
+#endif
   UINTN                     Size;
 
   if (DevicePathToConnect == NULL) {
@@ -87,7 +89,9 @@ BdsLibConnectDevicePath (
     //
     // Start the real work of connect with RemainingDevicePath
     //
+#ifdef __MAKEWITH_TIANO
     PreviousHandle = NULL;
+#endif
     do {
       //
       // Find the handle that best matches the Device Path. If it is only a

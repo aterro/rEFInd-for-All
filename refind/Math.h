@@ -1,6 +1,7 @@
 #ifndef _MATH_H_
 #define _MATH_H_
 
-// Math functions are provided by BaseLib.h in EDK2
+UINT64 DivU64x64Remainder(UINT64 Dividend, UINT64 Divisor, UINT64 *Remainder);
+INT64 DivS64x64Remainder(INT64 Dividend, INT64 Divisor, INT64 *Remainder);
 
 #endif
