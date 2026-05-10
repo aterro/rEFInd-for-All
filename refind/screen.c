@@ -105,7 +105,19 @@ static VOID PrepareBlankLine(VOID) {
 
 VOID InitScreen(VOID)
 {
-    LOG(1, LOG_LINE_NORMAL, L"Entering InitScreen()");
+  EFI_STATUS Status;
+  EFI_GRAPHICS_OUTPUT_PROTOCOL *GraphicsOutput;
+
+  // Get screen dimensions
+  Status = gBS->HandleProtocol(gST->ConsoleOutHandle, &gEfiGraphicsOutputProtocolGuid, (VOID**)&GraphicsOutput);
+  if (!EFI_ERROR(Status)) {
+    UGAWidth = GraphicsOutput->Mode->Info->HorizontalResolution;
+    UGAHeight = GraphicsOutput->Mode->Info->VerticalResolution;
+  } else {
+    // Default to 1024x768 if no graphics protocol found
+    UGAWidth = 1024;
+    UGAHeight = 768;
+  }
     // initialize libeg
     egInitScreen();
 

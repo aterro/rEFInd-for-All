@@ -92,7 +92,7 @@ VOID *MyMemSet(VOID *s, int c, size_t n) {
 }
 
 VOID *MyMemCpy(void *__restrict __dest, const void *__restrict __src, size_t __n) {
-    MyCopyMem(__dest, __src, __n);
+    MyCopyMem(__dest, (void *) __src, __n);
     return __dest;
 }
 

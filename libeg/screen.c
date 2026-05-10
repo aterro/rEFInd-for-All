@@ -82,11 +82,11 @@ static EFI_GUID UgaDrawProtocolGuid = EFI_UGA_DRAW_PROTOCOL_GUID;
 static EFI_UGA_DRAW_PROTOCOL *UgaDraw = NULL;
 
 static EFI_GUID GraphicsOutputProtocolGuid = EFI_GRAPHICS_OUTPUT_PROTOCOL_GUID;
-static EFI_GRAPHICS_OUTPUT_PROTOCOL *GraphicsOutput = NULL;
+EFI_GRAPHICS_OUTPUT_PROTOCOL *GraphicsOutput = NULL;
 
 static BOOLEAN egHasGraphics  = FALSE;
-static UINTN   egScreenWidth  = 800;
-static UINTN   egScreenHeight = 600;
+UINTN   egScreenWidth  = 800;
+UINTN   egScreenHeight = 600;
 
 
 //

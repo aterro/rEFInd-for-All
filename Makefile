@@ -82,12 +82,12 @@ endif
 ###########################################################################
 
 gnuefi:
-	+make MAKEWITH=GNUEFI -C $(LIBEG_DIR)
-	+make MAKEWITH=GNUEFI -C $(MOK_DIR)
-	+make MAKEWITH=GNUEFI -C $(GZIP_DIR)
-	+make MAKEWITH=GNUEFI -C $(EFILIB_DIR)
-	+make MAKEWITH=GNUEFI -C $(LOADER_DIR)
-	+make MAKEWITH=GNUEFI -C $(GPTSYNC_DIR) gnuefi
+	+make MAKEWITH=GNUEFI -C $(LIBEG_DIR) ARCH=ia32
+	+make MAKEWITH=GNUEFI -C $(MOK_DIR) ARCH=ia32
+	+make MAKEWITH=GNUEFI -C $(GZIP_DIR) ARCH=ia32
+	+make MAKEWITH=GNUEFI -C $(EFILIB_DIR) ARCH=ia32
+	+make MAKEWITH=GNUEFI -C $(LOADER_DIR) ARCH=ia32
+	+make MAKEWITH=GNUEFI -C $(GPTSYNC_DIR) gnuefi ARCH=ia32
 
 all_gnuefi: gnuefi fs_gnuefi
 

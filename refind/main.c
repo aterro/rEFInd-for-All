@@ -71,6 +71,7 @@
 #include "launch_efi.h"
 #include "scan.h"
 #include "log.h"
+
 #include "../include/refit_call_wrapper.h"
 #include "../include/version.h"
 #include "../libeg/efiConsoleControl.h"
@@ -530,6 +531,7 @@ efi_main (EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE *SystemTable)
     // message that must be deleted, so do so
     BltClearScreen(TRUE);
     pdInitialize();
+    
 
     if (GlobalConfig.ScanDelay > 0) {
        if (GlobalConfig.ScanDelay > 1) {
@@ -548,7 +550,9 @@ efi_main (EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE *SystemTable)
         MainMenu.TimeoutText = L"Shutdown";
 
     LOG(1, LOG_LINE_SEPARATOR, L"Entering main loop");
+    
     while (MainLoopRunning) {
+        
         MenuExit = RunMainMenu(&MainMenu, &SelectionName, &ChosenEntry);
 
         // The Escape key triggers a re-scan operation....

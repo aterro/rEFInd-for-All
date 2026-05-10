@@ -142,6 +142,8 @@ VOID egDrawImageArea(IN EG_IMAGE *Image,
                      IN UINTN AreaPosX, IN UINTN AreaPosY,
                      IN UINTN AreaWidth, IN UINTN AreaHeight,
                      IN UINTN ScreenPosX, IN UINTN ScreenPosY);
+VOID egTakeImage(IN EG_IMAGE *Image, INTN ScreenPosX, INTN ScreenPosY,
+                 IN INTN AreaWidth, IN INTN AreaHeight);
 VOID egDisplayMessage(IN CHAR16 *Text, EG_PIXEL *BGColor, UINTN PositionCode);
 EG_IMAGE * egCopyScreen(VOID);
 EG_IMAGE * egCopyScreenArea(UINTN XPos, UINTN YPos, UINTN Width, UINTN Height);

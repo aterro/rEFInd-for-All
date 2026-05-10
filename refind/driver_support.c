@@ -576,10 +576,18 @@ static UINTN ScanDriverDir(IN CHAR16 *Path)
 // Originally from rEFIt's main.c (BSD), but modified since then (GPLv3).
 // Returns TRUE if any drivers are loaded, FALSE otherwise.
 BOOLEAN LoadDrivers(VOID) {
-    CHAR16        *Directory, *SelfDirectory;
+    CHAR16        *Directory;
     UINTN         i = 0, Length, NumFound = 0;
 
     LOG(1, LOG_LINE_SEPARATOR, L"Loading drivers");
+
+#if defined (EFI32)
+    // Gemini Patch: Use a hardcoded absolute path for IA32, which is more reliable
+    // in Duet environments and aligns with Clover's behavior.
+    LOG(1, LOG_LINE_NORMAL, L"Scanning \\EFI\\Drivers32 for drivers...");
+    NumFound += ScanDriverDir(L"\\EFI\\Drivers32");
+#else
+    // Original rEFInd logic for other architectures
     // load drivers from the subdirectories of rEFInd's home directory specified
     // in the DRIVER_DIRS constant.
     while ((Directory = FindCommaDelimited(DRIVER_DIRS, i++)) != NULL) {
@@ -590,6 +598,7 @@ BOOLEAN LoadDrivers(VOID) {
         MyFreePool(Directory);
         MyFreePool(SelfDirectory);
     }
+#endif
 
     // Scan additional user-specified driver directories....
     i = 0;

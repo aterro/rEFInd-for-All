@@ -1,0 +1,4 @@
+#define FIRMWARE_VERSION "2.31"
+#define FIRMWARE_BUILDDATE "2025-09-18 19:14:30"
+#define FIRMWARE_REVISION L"766"
+#define REVISION_STR "Clover revision: 766"

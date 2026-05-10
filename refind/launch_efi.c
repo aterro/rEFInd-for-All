@@ -327,12 +327,16 @@ EFI_STATUS StartEFIImage(IN REFIT_VOLUME *Volume,
     ErrorInfo = PoolPrint(L"returned from %s", ImageTitle);
     CheckError(Status, ErrorInfo);
     MyFreePool(ErrorInfo);
+    /* GEMINI PATCH: Disabled aggressive driver connection logic.
+     * This was suspected of causing issues in the Duet environment
+     * by disconnecting necessary device handles.
     if (IsDriver) {
         // Below should have no effect on most systems, but works
         // around bug with some EFIs that prevents filesystem drivers
         // from binding to partitions.
         ConnectFilesystemDriver(ChildImageHandle);
     }
+    */
 
     // re-open file handles
     ReinitRefitLib();
