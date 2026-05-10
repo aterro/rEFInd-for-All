@@ -692,13 +692,15 @@ UINTN RunGenericMenu(IN REFIT_MENU_SCREEN *Screen,
             }
         }
 
+        if (PointerEnabled) {
+            pdClear();
+        }
+
         if (State.PaintAll) {
-            if (PointerEnabled && pointerShouldBeVisible) { pdClear(); }
             StyleFunc(Screen, &State, MENU_FUNCTION_PAINT_ALL, NULL);
             State.PaintAll = FALSE;
             State.PaintSelection = FALSE;
         } else if (State.PaintSelection) {
-            if (PointerEnabled && pointerShouldBeVisible) { pdClear(); }
             gSuppressPointerDraw = TRUE;
             StyleFunc(Screen, &State, MENU_FUNCTION_PAINT_SELECTION, NULL);
             State.PaintSelection = FALSE;
