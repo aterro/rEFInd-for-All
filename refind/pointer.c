@@ -30,8 +30,6 @@
 #include "libeg.h"
 #include "log.h"
 
-#include "log.h"
-
 // Replicate rEFIt's PrintPointerVars for debugging
 static INTN PrintCount = 0;
 VOID PrintPointerVars(
@@ -67,6 +65,67 @@ static VOID egRawCopy(IN EG_PIXEL *dst, IN EG_PIXEL *src, IN INTN width, IN INTN
             dst[y * dst_stride + x] = src[y * src_stride + x];
         }
     }
+}
+
+static BOOLEAN IsImageFullyTransparent(EG_IMAGE *Image) {
+    UINTN x, y;
+    if (Image == NULL || Image->PixelData == NULL)
+        return TRUE;
+    for (y = 0; y < Image->Height; y++) {
+        for (x = 0; x < Image->Width; x++) {
+            if (Image->PixelData[y * Image->Width + x].a != 0)
+                return FALSE;
+        }
+    }
+    return TRUE;
+}
+
+static EG_IMAGE *CreateFallbackNoTailCursor(VOID) {
+    UINTN x, y;
+    EG_IMAGE *Img = egCreateImage(32, 32, TRUE);
+    if (Img == NULL)
+        return NULL;
+
+    static const UINT8 Map[32][32] = {
+        {1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
+        {1,2,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
+        {1,2,2,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
+        {1,2,2,2,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
+        {1,2,2,2,2,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
+        {1,2,2,2,2,2,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
+        {1,2,2,2,2,2,2,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
+        {1,2,2,2,2,2,2,2,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
+        {1,2,2,2,2,2,2,2,2,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
+        {1,2,2,2,2,2,2,2,2,2,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
+        {1,2,2,2,2,2,2,2,2,2,2,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
+        {1,2,2,2,2,2,2,2,2,2,2,2,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
+        {1,2,2,2,2,2,2,2,2,2,2,2,2,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
+        {1,2,2,2,2,1,1,1,1,1,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
+        {1,2,2,2,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
+        {1,2,2,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
+        {1,2,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
+        {1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0}
+    };
+
+    for (y = 0; y < 32; y++) {
+        for (x = 0; x < 32; x++) {
+            EG_PIXEL *Pixel = &Img->PixelData[y * 32 + x];
+            switch (Map[y][x]) {
+                case 1:
+                    Pixel->r = 0x1A; Pixel->g = 0x1A; Pixel->b = 0x1A; Pixel->a = 0xFF;
+                    break;
+                case 2:
+                    Pixel->r = 0xFF; Pixel->g = 0xFF; Pixel->b = 0xFF; Pixel->a = 0xFF;
+                    break;
+                default:
+                    Pixel->r = 0x00; Pixel->g = 0x00; Pixel->b = 0x00; Pixel->a = 0x00;
+                    break;
+            }
+        }
+    }
+
+    Img->HasAlpha = TRUE;
+    return Img;
 }
 
 BOOLEAN PointerInitialized = FALSE;
@@ -163,6 +222,13 @@ VOID pdInitialize() {
     MouseTouchActive = TRUE;
 
     PointerImage = BuiltinIcon(BUILTIN_ICON_MOUSE);
+    if (PointerImage != NULL && IsImageFullyTransparent(PointerImage)) {
+        egFreeImage(PointerImage);
+        PointerImage = NULL;
+    }
+    if (PointerImage == NULL) {
+        PointerImage = CreateFallbackNoTailCursor();
+    }
     if (!PointerImage) {
         PointerAvailable = FALSE;
         return;
@@ -336,6 +402,15 @@ EFI_STATUS pdUpdateState() {
 ////////////////////////////////////////////////////////////////////////////////
 POINTER_STATE pdGetState() {
 return State;
+}
+////////////////////////////////////////////////////////////////////////////////
+// Set the pointer position
+////////////////////////////////////////////////////////////////////////////////
+VOID pdSetPosition (UINTN X, UINTN Y) {
+    State.X = X;
+    State.Y = Y;
+    PointerPlace.XPos = X;
+    PointerPlace.YPos = Y;
 }
 ////////////////////////////////////////////////////////////////////////////////
 // Draw the mouse at the current coordinates
