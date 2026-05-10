@@ -397,6 +397,60 @@ static VOID SaveScreen(VOID) {
     ReadAllKeyStrokes();
 } // VOID SaveScreen()
 
+////////////////////////////////////////////////////////////////////////////////
+static VOID GetMenuItemCenter (
+    IN  REFIT_MENU_SCREEN *Screen,
+    IN  SCROLL_STATE      *State,
+    IN  UINTN              ItemIndex,
+    OUT UINTN             *CenterX,
+    OUT UINTN             *CenterY
+) {
+    UINTN  i;
+    UINTN  row0PosX, row1PosX, row1PosXRunning;
+    UINTN  row0PosY, row1PosY;
+    UINTN  row0Count, row1Count;
+
+    *CenterX = UGAWidth >> 1;
+    *CenterY = UGAHeight >> 1;
+
+    if (ItemIndex > State->MaxIndex)
+        return;
+
+    row0Count = 0;
+    row1Count = 0;
+    for (i = 0; i <= State->MaxIndex; i++) {
+       if (Screen->Entries[i]->Row == 1)
+          row1Count++;
+       else if (row0Count < State->MaxVisible)
+          row0Count++;
+    }
+
+    row0PosX = (UGAWidth + TILE_XSPACING - (TileSizes[0] + TILE_XSPACING) * row0Count) >> 1;
+    row0PosY = ComputeRow0PosY();
+    row1PosX = (UGAWidth + TILE_XSPACING - (TileSizes[1] + TILE_XSPACING) * row1Count) >> 1;
+    row1PosY = row0PosY + TileSizes[0] + TILE_YSPACING;
+
+    if (Screen->Entries[ItemIndex]->Row == 0) {
+        if (ItemIndex >= State->FirstVisible && ItemIndex <= State->LastVisible) {
+            UINTN visibleIndex = ItemIndex - State->FirstVisible;
+            *CenterX = (row0PosX + (TileSizes[0] + TILE_XSPACING) * visibleIndex) + (TileSizes[0] >> 1);
+            *CenterY = row0PosY + (TileSizes[0] >> 1);
+        }
+    } else {
+        row1PosXRunning = row1PosX;
+        for (i = 0; i <= State->MaxIndex; i++) {
+            if (Screen->Entries[i]->Row == 1) {
+                if (i == ItemIndex) {
+                    *CenterX = row1PosXRunning + (TileSizes[1] >> 1);
+                    *CenterY = row1PosY + (TileSizes[1] >> 1);
+                    return;
+                }
+                row1PosXRunning += TileSizes[1] + TILE_XSPACING;
+            }
+        }
+    }
+} // static VOID GetMenuItemCenter()
+
 UINT64 GetCurrentMS(VOID)
 {
     EFI_TIME Time;
@@ -1451,61 +1505,6 @@ UINTN FindMainMenuItem(IN REFIT_MENU_SCREEN *Screen, IN SCROLL_STATE *State, IN 
 
     return ItemIndex;
 } // VOID FindMainMenuItem()
-
-////////////////////////////////////////////////////////////////////////////////
-static
-VOID GetMenuItemCenter (
-    IN  REFIT_MENU_SCREEN *Screen,
-    IN  SCROLL_STATE      *State,
-    IN  UINTN              ItemIndex,
-    OUT UINTN             *CenterX,
-    OUT UINTN             *CenterY
-) {
-    UINTN  i;
-    UINTN  row0PosX, row1PosX, row1PosXRunning;
-    UINTN  row0PosY, row1PosY;
-    UINTN  row0Count, row1Count;
-
-    *CenterX = UGAWidth >> 1;
-    *CenterY = UGAHeight >> 1;
-
-    if (ItemIndex > State->MaxIndex)
-        return;
-
-    row0Count = 0;
-    row1Count = 0;
-    for (i = 0; i <= State->MaxIndex; i++) {
-       if (Screen->Entries[i]->Row == 1)
-          row1Count++;
-       else if (row0Count < State->MaxVisible)
-          row0Count++;
-    }
-
-    row0PosX = (UGAWidth + TILE_XSPACING - (TileSizes[0] + TILE_XSPACING) * row0Count) >> 1;
-    row0PosY = ComputeRow0PosY();
-    row1PosX = (UGAWidth + TILE_XSPACING - (TileSizes[1] + TILE_XSPACING) * row1Count) >> 1;
-    row1PosY = row0PosY + TileSizes[0] + TILE_YSPACING;
-
-    if (Screen->Entries[ItemIndex]->Row == 0) {
-        if (ItemIndex >= State->FirstVisible && ItemIndex <= State->LastVisible) {
-            UINTN visibleIndex = ItemIndex - State->FirstVisible;
-            *CenterX = (row0PosX + (TileSizes[0] + TILE_XSPACING) * visibleIndex) + (TileSizes[0] >> 1);
-            *CenterY = row0PosY + (TileSizes[0] >> 1);
-        }
-    } else {
-        row1PosXRunning = row1PosX;
-        for (i = 0; i <= State->MaxIndex; i++) {
-            if (Screen->Entries[i]->Row == 1) {
-                if (i == ItemIndex) {
-                    *CenterX = row1PosXRunning + (TileSizes[1] >> 1);
-                    *CenterY = row1PosY + (TileSizes[1] >> 1);
-                    return;
-                }
-                row1PosXRunning += TileSizes[1] + TILE_XSPACING;
-            }
-        }
-    }
-} // static VOID GetMenuItemCenter()
 
 // Enable the user to edit boot loader options.
 // Returns TRUE if the user exited with edited options; FALSE if the user
