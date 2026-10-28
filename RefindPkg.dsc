@@ -75,6 +75,10 @@
 [LibraryClasses.AARCH64]
   CompilerIntrinsicsLib|ArmPkg/Library/CompilerIntrinsicsLib/CompilerIntrinsicsLib.inf
 
+[BuildOptions]
+  # Termux/clang: rEFInd headers change #pragma pack state across includes
+  GCC:*_*_*_CC_FLAGS = -Wno-error=pragma-pack
+
 [Components]
   RefindPkg/refind.inf
   RefindPkg/gptsync.inf
