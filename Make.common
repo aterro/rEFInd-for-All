@@ -42,7 +42,7 @@ EFICRT0         = /usr/lib
 GNUEFI_ARM64_TARGET_SUPPORT ?= n
 
 HOSTARCH        = $(shell uname -m | sed s,i[3456789]86,ia32,)
-ARCH            ?= $(HOSTARCH)
+ARCH            ?= x86_64
 
 # Pointer to SBAT .csv file. First is default; uncomment second (or make your
 # your own) if you build your own binary. If you make changes and build your
@@ -60,6 +60,29 @@ ifeq ($(ARCH),aarch64)
   AR            = $(prefix)aarch64-linux-gnu-ar
   RANLIB        = $(prefix)aarch64-linux-gnu-ranlib
   OBJCOPY       = $(prefix)aarch64-linux-gnu-objcopy
+else ifeq ($(ARCH),x86_64)
+ifeq ($(HOSTARCH),x86_64)
+  CC            = $(prefix)gcc
+  AS            = $(prefix)as
+  LD            = $(prefix)ld
+  AR            = $(prefix)ar
+  RANLIB        = $(prefix)ranlib
+  OBJCOPY       = $(prefix)objcopy
+else
+  CC            = $(prefix)x86_64-linux-gnu-gcc
+  AS            = $(prefix)x86_64-linux-gnu-as
+  LD            = $(prefix)x86_64-linux-gnu-ld
+  AR            = $(prefix)x86_64-linux-gnu-ar
+  RANLIB        = $(prefix)x86_64-linux-gnu-ranlib
+  OBJCOPY       = $(prefix)x86_64-linux-gnu-objcopy
+  X86_64_GNUEFI_ROOT ?= /usr/local/gnu-efi-x86_64/usr
+ifneq ($(wildcard $(X86_64_GNUEFI_ROOT)/lib/elf_x86_64_efi.lds),)
+  EFIINC        = $(X86_64_GNUEFI_ROOT)/include/efi
+  GNUEFILIB     = $(X86_64_GNUEFI_ROOT)/lib
+  EFILIB        = $(X86_64_GNUEFI_ROOT)/lib
+  EFICRT0       = $(X86_64_GNUEFI_ROOT)/lib
+endif
+endif
 else
   CC            = $(prefix)gcc
   AS            = $(prefix)as

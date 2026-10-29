@@ -11,7 +11,7 @@ SRCDIR = .
 
 VPATH = $(SRCDIR)
 
-ARCH            = $(shell uname -m | sed s,i[3456789]86,ia32,)
+ARCH            ?= x86_64
 
 TARGET	= refind.efi
 
@@ -62,4 +62,3 @@ endif
 clean:
 	rm -f $(TARGET) *~ *.so $(OBJS) *.efi *.obj refind_*.txt \
 		refind_*.dll *.lib
-
