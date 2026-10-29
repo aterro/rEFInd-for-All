@@ -51,11 +51,10 @@
 #include "gzio.c"
 #define MINILZO_CFG_SKIP_LZO_PTR 1
 #define MINILZO_CFG_SKIP_LZO_UTIL 1
-#define MINILZO_CFG_SKIP_LZO_STRING 1
 #define MINILZO_CFG_SKIP_LZO_INIT 1
 #define MINILZO_CFG_SKIP_LZO1X_DECOMPRESS 1
 #define MINILZO_CFG_SKIP_LZO1X_1_COMPRESS 1
-#define MINILZO_CFG_SKIP_LZO_STRING 1
+#define LZO_CFG_FREESTANDING 1
 #include "minilzo.c"
 #include "scandisk.c"
 
@@ -629,7 +628,7 @@ reiter:
                 }
                 if (key_cmp (&node.key, key_in) > 0)
                     break;
-                node_last = node;
+                fsw_memcpy (&node_last, &node, sizeof (node_last));
                 have_last = 1;
             }
             if (have_last)
@@ -2202,4 +2201,3 @@ struct fsw_fstype_table   FSW_FSTYPE_TABLE_NAME(btrfs) = {
     fsw_btrfs_dir_read,
     fsw_btrfs_readlink,
 };
-

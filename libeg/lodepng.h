@@ -32,13 +32,12 @@ freely, subject to the following restrictions:
 #ifndef LODEPNG_H
 #define LODEPNG_H
 
-#include <string.h> /*for size_t*/
+#include <stddef.h> /*for size_t*/
 
 // Below block of lines required for GNU-EFI and TianoCore (program hangs
 // when run without them, and associated function in lodepng_xtra.c)
 int MyStrlen(const char *InString);
 #define strlen(c) MyStrlen(c)
-#include <stdlib.h>
 #include "../include/refit_call_wrapper.h"
 #define abs(x) (((x) < 0) ? -(x) : (x))
 #ifdef __MAKEWITH_GNUEFI

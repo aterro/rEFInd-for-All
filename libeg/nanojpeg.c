@@ -112,11 +112,12 @@
 #ifndef _NANOJPEG_H
 #define _NANOJPEG_H
 
+#include "../refind/lib.h"
+#include "lodepng.h"
+
 // Modified: Map libc-style free() and malloc() to their EFI equivalents....
 #define free MyFreePool
 #define malloc AllocatePool
-#define memset(b, c, v) MyMemSet(b, v, c)
-#define memcpy MyMemCpy
 
 
 // nj_result_t: Result codes for njDecode().
@@ -273,8 +274,10 @@ int main(int argc, char* argv[]) {
 #endif
 
 #if NJ_USE_LIBC
-    #include <stdlib.h>
-    #include <string.h>
+    #if !defined(__MAKEWITH_TIANO) && !defined(__MAKEWITH_GNUEFI)
+        #include <stdlib.h>
+        #include <string.h>
+    #endif
     #define njAllocMem malloc
     #define njFreeMem  free
     #define njFillMem  memset

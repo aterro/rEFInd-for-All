@@ -504,7 +504,7 @@ BOOLEAN IsGuid(CHAR16 *UnknownString) {
                 retval = FALSE;
         } else if (((a < L'a') || (a > L'f')) &&
                    ((a < L'A') || (a > L'F')) &&
-                   ((a < L'0') && (a > L'9'))) {
+                   ((a < L'0') || (a > L'9'))) {
             retval = FALSE;
         } // if/else if
     } // for
