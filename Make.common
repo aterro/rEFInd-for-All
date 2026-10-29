@@ -68,20 +68,31 @@ ifeq ($(HOSTARCH),x86_64)
   AR            = $(prefix)ar
   RANLIB        = $(prefix)ranlib
   OBJCOPY       = $(prefix)objcopy
-else
+else ifneq ($(wildcard $(PREFIX)/bin/clang),)
+  TERMUX_X64_CLANG = 1
+  CC            = $(PREFIX)/bin/clang --target=x86_64-linux-android
+  AS            = $(PREFIX)/bin/clang --target=x86_64-linux-android
+  LD            = $(PREFIX)/bin/ld.lld
+  AR            = $(PREFIX)/bin/llvm-ar
+  RANLIB        = $(PREFIX)/bin/llvm-ranlib
+  OBJCOPY       = $(PREFIX)/bin/llvm-objcopy
+else ifneq ($(strip $(shell command -v x86_64-linux-gnu-gcc 2>/dev/null)),)
   CC            = $(prefix)x86_64-linux-gnu-gcc
   AS            = $(prefix)x86_64-linux-gnu-as
   LD            = $(prefix)x86_64-linux-gnu-ld
   AR            = $(prefix)x86_64-linux-gnu-ar
   RANLIB        = $(prefix)x86_64-linux-gnu-ranlib
   OBJCOPY       = $(prefix)x86_64-linux-gnu-objcopy
-  X86_64_GNUEFI_ROOT ?= /usr/local/gnu-efi-x86_64/usr
-ifneq ($(wildcard $(X86_64_GNUEFI_ROOT)/lib/elf_x86_64_efi.lds),)
+else
+  $(error X64 builds on this host require x86_64-linux-gnu-gcc or Termux Clang)
+endif
+  X86_64_GNUEFI_ROOT ?= $(abspath $(dir $(lastword $(MAKEFILE_LIST))))/gnu-efi
   EFIINC        = $(X86_64_GNUEFI_ROOT)/include/efi
   GNUEFILIB     = $(X86_64_GNUEFI_ROOT)/lib
   EFILIB        = $(X86_64_GNUEFI_ROOT)/lib
   EFICRT0       = $(X86_64_GNUEFI_ROOT)/lib
-endif
+ifeq ($(TERMUX_X64_CLANG),1)
+  GENFW         = $(EDK2BASE)/BaseTools/Source/C/bin/GenFw
 endif
 else
   CC            = $(prefix)gcc
@@ -102,7 +113,10 @@ endif
 #
 
 # ...for both GNU-EFI and TianoCore....
-OPTIMFLAGS      = -Os -fno-strict-aliasing -fno-tree-loop-distribute-patterns
+OPTIMFLAGS      = -Os -fno-strict-aliasing
+ifneq ($(TERMUX_X64_CLANG),1)
+OPTIMFLAGS      += -fno-tree-loop-distribute-patterns
+endif
 CFLAGS          = $(OPTIMFLAGS) -fno-stack-protector -fshort-wchar -Wall -DMDEPKG_NDEBUG
 
 # ...for GNU-EFI....
@@ -130,7 +144,11 @@ SUBSYSTEM_LDFLAG  =
 GNUEFI_LDSCRIPT   = $(EFICRT0)/elf_$(ARCH)_efi.lds
 CRTOBJS           = $(EFICRT0)/crt0-efi-$(ARCH).o
 GNUEFI_LDFLAGS    = -T $(GNUEFI_LDSCRIPT) -shared -Bsymbolic -nostdlib -L$(EFILIB) -L$(GNUEFILIB) $(CRTOBJS)
+ifeq ($(TERMUX_X64_CLANG),1)
+GNUEFI_LIBS       = -lefi -lgnuefi
+else
 GNUEFI_LIBS       = -lefi -lgnuefi $(shell $(CC) -print-libgcc-file-name)
+endif
 #LIBS            = -lefi -lgnuefi $(shell $(CC) $(ARCH3264) -print-libgcc-file-name)
 
 # ...and for TianoCore....

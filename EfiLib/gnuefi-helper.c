@@ -19,8 +19,19 @@
 #include "DevicePathUtilities.h"
 #include "refit_call_wrapper.h"
 #include "LegacyBios.h"
+#include <stddef.h>
 
 EFI_GUID gEfiLegacyBiosProtocolGuid = { 0xdb9a1e3d, 0x45cb, 0x4abb, { 0x85, 0x3b, 0xe5, 0x38, 0x7f, 0xdb, 0x2e, 0x2d }};
+
+size_t strlen(const char *String)
+{
+  const char *End = String;
+
+  while (*End != '\0') {
+    End++;
+  }
+  return (size_t) (End - String);
+}
 
 /**
   Convert a Null-terminated Unicode string to a Null-terminated 

@@ -50,12 +50,20 @@ $(SHLIB_TARGET): $(OBJS)
 	      -o $@ $(LOCAL_LIBS) $(GNUEFI_LIBS)
 
 $(TARGET): $(SHLIB_TARGET)
+ifeq ($(TERMUX_X64_CLANG),1)
+	$(GENFW) -e UEFI_APPLICATION -o $@ $<
+else
 	$(OBJCOPY) -j .text -j .sdata -j .data -j .dynamic -j .dynsym -j .rodata \
 		   -j .rel -j .rela -j .rel.* -j .rela.* -j .rel* -j .rela* \
 		   -j .reloc --strip-unneeded $(FORMAT) $< $@
+endif
 ifneq ($(OMIT_SBAT), 1)
+ifeq ($(TERMUX_X64_CLANG),1)
+	python3 ../tools/add_sbat.py $@ ../$(REFIND_SBAT_CSV)
+else
 	    $(OBJCOPY) --add-section .sbat=$(SRCDIR)/../$(REFIND_SBAT_CSV) \
 		       --adjust-section-vma .sbat+10000000 $@
+endif
 endif
 	chmod a-x $(TARGET)
 

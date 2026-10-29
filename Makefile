@@ -19,11 +19,15 @@ EFILIB_DIR=EfiLib
 # TIANOBASE is used with "tiano" targets and
 # EDK2BASE is used with "edk2" targets
 export TIANOBASE=/usr/local/UDK2014/MyWorkSpace
-export EDK2BASE=/usr/local/edk2-vUDK2018
+THISDIR=$(shell pwd)
+EDK2BASE ?= $(abspath $(THISDIR)/../edk2)
+export EDK2BASE
+GCC5_BIN ?= $(if $(PREFIX),$(PREFIX)/bin/)
+export GCC5_BIN
 # NOTE: Below is overridden for "tiano" targets
 -include $(EDK2BASE)/Conf/target.txt
-THISDIR=$(shell pwd)
-EDK2_BUILDLOC=$(EDK2BASE)/Build/Refind/$(TARGET)_$(TOOL_CHAIN_TAG)/$(UC_ARCH)
+EDK2_BUILD_TYPE ?= RELEASE
+EDK2_BUILDLOC=$(EDK2BASE)/Build/Refind/$(EDK2_BUILD_TYPE)_$(TOOL_CHAIN_TAG)/$(UC_ARCH)
 EDK2_PROGRAM_BASENAMES=refind gptsync
 EDK2_PROGRAMS=$(EDK2_PROGRAM_BASENAMES:=.efi)
 EDK2_DRIVER_BASENAMES=btrfs ext4 ext2 hfs iso9660 reiserfs
@@ -35,6 +39,10 @@ EDK2_ALL_FILES=$(EDK2_ALL_BASENAMES:=.efi)
 # back on the more easily-installed GNU-EFI library if TianoCore isn't
 # installed at $(EDK2BASE) or $(TIANOBASE)
 all:
+ifeq ($(TERMUX_X64_CLANG),1)
+	@echo "Using GNU-EFI with the Termux Clang toolchain"
+	+make gnuefi
+else
 ifneq ($(wildcard $(EDK2BASE)/*),)
 	@echo "Found $(EDK2BASE); building with TianoCore EDK2"
 	+make edk2
@@ -45,10 +53,15 @@ else
 	@echo "Did not find $(EDK2BASE) or $(TIANOBASE); building with GNU-EFI"
 	+make gnuefi
 endif
+endif
 
 # The "fs" target, like "all," attempts to build with TianoCore but falls
 # back to GNU-EFI.
 fs:
+ifeq ($(TERMUX_X64_CLANG),1)
+	@echo "Using GNU-EFI with the Termux Clang toolchain"
+	+make fs_gnuefi
+else
 ifneq ($(wildcard $(EDK2BASE)/*),)
 	@echo "Found $(EDK2BASE); building with TianoCore EDK2"
 	+make fs_edk2
@@ -59,9 +72,14 @@ else
 	@echo "Did not find $(EDK2BASE) or $(TIANOBASE); building with GNU-EFI"
 	+make fs_gnuefi
 endif
+endif
 
 # Likewise for GPTsync....
 gptsync:
+ifeq ($(TERMUX_X64_CLANG),1)
+	@echo "Using GNU-EFI with the Termux Clang toolchain"
+	+make gptsync_gnuefi
+else
 ifneq ($(wildcard $(EDK2BASE)/*),)
 	@echo "Found $(EDK2BASE); building with TianoCore EDK2"
 	+make gptsync_edk2
@@ -71,6 +89,7 @@ else ifneq ($(wildcard $(TIANOBASE)/*),)
 else
 	@echo "Did not find $(EDK2BASE) or $(TIANOBASE); building with GNU-EFI"
 	+make gptsync_gnuefi
+endif
 endif
 
 ###########################################################################
@@ -150,10 +169,15 @@ edk2: build_edk2
 	cp $(EDK2_BUILDLOC)/refind.efi ./refind/refind_$(FILENAME_CODE).efi
 	cp $(EDK2_BUILDLOC)/gptsync.efi ./gptsync/gptsync_$(FILENAME_CODE).efi
 ifneq ($(OMIT_SBAT), 1)
+ifeq ($(TERMUX_X64_CLANG),1)
+	python3 ./tools/add_sbat.py ./refind/refind_$(FILENAME_CODE).efi ./$(REFIND_SBAT_CSV)
+	python3 ./tools/add_sbat.py ./gptsync/gptsync_$(FILENAME_CODE).efi ./$(REFIND_SBAT_CSV)
+else
 	$(OBJCOPY) --set-section-alignment '.sbat=512' --add-section .sbat=$(REFIND_SBAT_CSV) \
 		--adjust-section-vma .sbat+10000000 ./refind/refind_$(FILENAME_CODE).efi
 	$(OBJCOPY) --set-section-alignment '.sbat=512' --add-section .sbat=$(REFIND_SBAT_CSV) \
 		--adjust-section-vma .sbat+10000000 ./gptsync/gptsync_$(FILENAME_CODE).efi
+endif
 endif
 
 all_edk2: build_edk2 fs_edk2
@@ -170,6 +194,13 @@ ifeq ($(OMIT_SBAT), 1)
 		cp "$(EDK2_BUILDLOC)/$$BASENAME.efi" ./drivers_$(FILENAME_CODE)/$$BASENAME\_$(FILENAME_CODE).efi ; \
 	done
 else
+ifeq ($(TERMUX_X64_CLANG),1)
+	for BASENAME in $(EDK2_DRIVER_BASENAMES) ; do \
+		echo "Copying $$BASENAME""_$(FILENAME_CODE).efi" ; \
+		cp "$(EDK2_BUILDLOC)/$$BASENAME.efi" ./drivers_$(FILENAME_CODE)/$$BASENAME\_$(FILENAME_CODE).efi ; \
+		python3 ./tools/add_sbat.py ./drivers_$(FILENAME_CODE)/$$BASENAME\_$(FILENAME_CODE).efi ./$(REFIND_SBAT_CSV) ; \
+	done
+else
 	for BASENAME in $(EDK2_DRIVER_BASENAMES) ; do \
 		echo "Copying $$BASENAME""_$(FILENAME_CODE).efi" ; \
 		cp "$(EDK2_BUILDLOC)/$$BASENAME.efi" ./drivers_$(FILENAME_CODE)/$$BASENAME\_$(FILENAME_CODE).efi ; \
@@ -177,11 +208,12 @@ else
 		    --adjust-section-vma .sbat+10000000 ./drivers_$(FILENAME_CODE)/$$BASENAME\_$(FILENAME_CODE).efi ; \
 	done
 endif
+endif
 
 build_edk2: $(EDK2BASE)/RefindPkg
 	cd $(EDK2BASE) && \
 	. ./edksetup.sh BaseTools && \
-	build -a $(UC_ARCH) -p RefindPkg/RefindPkg.dsc
+	build -a $(UC_ARCH) -b $(EDK2_BUILD_TYPE) -t $(TOOL_CHAIN_TAG) -p RefindPkg/RefindPkg.dsc
 	mkdir -p ./drivers_$(FILENAME_CODE)
 
 $(EDK2BASE)/RefindPkg:
